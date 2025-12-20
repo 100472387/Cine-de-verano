@@ -85,7 +85,8 @@
 </main>
 
 <footer class="text-center py-8 text-slate-500 text-sm">
-© 2025 Cine de Verano
+  <p>© 2025 Cine de Verano</p>
+  <p id="user-id-display" class="mt-2 text-[10px] opacity-50 font-mono uppercase tracking-widest"></p>
 </footer>
 
 <script type="module">
@@ -149,6 +150,8 @@ signInAnonymously(auth);
 onAuthStateChanged(auth, user => {
   if (user) {
     uid = user.uid;
+    // Mostrar el ID acortado en el footer
+    document.getElementById("user-id-display").innerText = `ID de sesión: ${user.uid.slice(-6)}`;
     init();
   }
 });
