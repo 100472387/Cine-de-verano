@@ -206,8 +206,6 @@ function render() {
                 <i class="fas fa-star"></i> IMDb ${m.rating}/10
               </div>` : ""}
 
-            <p class="text-slate-400 italic text-sm mt-2">${m.desc}</p>
-
             <button
               onclick="toggleVote(${currentDay}, ${idx})"
               class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded
@@ -255,7 +253,6 @@ document.getElementById("add-movie-btn").onclick = async () => {
     time: h,
     img: data.img,
     rating: data.rating,
-    desc: de,
     votes: {}
   });
 
