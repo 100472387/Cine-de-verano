@@ -1,355 +1,268 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cine de Verano - Primos & Hermanos</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@300;400;700&display=swap');
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cine de Verano</title>
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-        }
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 
-        .font-bungee {
-            font-family: 'Bungee', cursive;
-        }
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@300;400;700&display=swap');
+  body { font-family: 'Inter', sans-serif; background:#0f172a; color:#f8fafc }
 
-        .hero-gradient {
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 1) 100%),
-                        url('https://images.unsplash.com/photo-1595764430585-52114e796126?auto=format&fit=crop&q=80&w=2000');
-            background-size: cover;
-            background-position: center;
-            height: 50vh;
-        }
+  .font-bungee { font-family:'Bungee', cursive }
+  
+  .day-tab.active { background:#eab308; color:#000 }
+  
+  .hero-gradient {
+    background:
+      linear-gradient(180deg, rgba(15,23,42,0.2) 0%, rgba(15,23,42,1) 100%),
+      url('https://images.unsplash.com/photo-1595764430585-52114e796126?auto=format&fit=crop&q=80&w=2000');
+    background-size: cover;
+    background-position: center;
+    height: 50vh;
+  }
 
-        .movie-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .movie-card:hover {
-            transform: translateY(-8px);
-            border-color: #eab308;
-        }
-
-        .day-tab.active {
-            background-color: #eab308;
-            color: #000;
-        }
-        
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        input, textarea, select {
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            color: white;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-            width: 100%;
-        }
-    </style>
+  .title-glow {
+    text-shadow:
+      0 0 20px rgba(234,179,8,0.6),
+      0 5px 15px rgba(234,179,8,0.4);
+  }
+</style>
 </head>
+
 <body class="antialiased">
 
-    <!-- Header / Hero -->
-    <header class="relative hero-gradient flex items-center justify-center text-center px-4">
-        <div class="z-10 mt-20">
-            <h1 class="text-5xl md:text-8xl font-bungee text-yellow-400 drop-shadow-[0_5px_15px_rgba(234,179,8,0.4)] mb-4">
-                Cine de Verano
-            </h1>
-            <p class="text-lg md:text-2xl font-light tracking-[0.2em] uppercase text-slate-200">
-                Estrenos bajo las estrellas â¢ Primos y Hermanos
-            </p>
-        </div>
-    </header>
+<header class="relative hero-gradient flex items-center justify-center text-center px-4">
+  <div class="z-10 mt-16">
+    <h1 class="text-5xl md:text-8xl font-bungee text-yellow-400 title-glow mb-4">
+      Cine de Verano
+    </h1>
+    <p class="text-lg md:text-2xl font-light tracking-[0.25em] uppercase text-slate-200">
+      Para que luego os quejéis
+    </p>
+  </div>
+</header>
 
-    <main class="max-w-6xl mx-auto px-6 py-12">
-        
-        <!-- NavegaciÃ³n de DÃ­as -->
-        <section class="mb-12 text-center">
-            <div class="flex items-center justify-center space-x-4 overflow-x-auto no-scrollbar pb-4" id="days-nav">
-                <!-- DinÃ¡mico -->
-            </div>
-        </section>
+<main class="max-w-6xl mx-auto px-6 py-12">
 
-        <!-- Cartelera DinÃ¡mica -->
-        <section id="movie-container" class="mb-20 min-h-[400px]">
-            <div class="flex items-center mb-8">
-                <i class="fas fa-calendar-alt text-3xl text-yellow-500 mr-4"></i>
-                <h2 id="current-day-title" class="text-3xl font-bold">Cargando cartelera...</h2>
-            </div>
-            
-            <div id="movies-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <!-- DinÃ¡mico -->
-            </div>
-        </section>
+<section class="mb-10 text-center">
+  <div id="days-nav" class="flex gap-4 justify-center flex-wrap"></div>
+</section>
 
-        <!-- Panel de AdministraciÃ³n -->
-        <section class="mb-20 bg-slate-900/80 p-8 rounded-3xl border-2 border-yellow-500/20 shadow-xl">
-            <div class="flex items-center mb-8">
-                <i class="fas fa-tools text-2xl text-yellow-500 mr-3"></i>
-                <h2 class="text-2xl font-bungee text-yellow-500">Panel de Control (Nube)</h2>
-            </div>
+<section class="mb-16">
+  <h2 id="current-day-title" class="text-3xl font-bold mb-6"></h2>
+  <div id="movies-grid" class="grid md:grid-cols-3 gap-6"></div>
+</section>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-                <!-- AÃ±adir DÃ­a -->
-                <div>
-                    <h3 class="font-bold mb-4 flex items-center"><i class="fas fa-plus-circle mr-2 text-yellow-500"></i> Nuevo DÃ­a</h3>
-                    <div class="space-y-3">
-                        <input type="text" id="new-day-label" placeholder="Ej: DÃ­a 4 - Lunes">
-                        <button id="add-day-btn" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-bold transition disabled:opacity-50">AÃ±adir DÃ­a</button>
-                    </div>
-                </div>
+<section class="bg-slate-900 p-8 rounded-3xl border border-yellow-500/20">
+  <h2 class="font-bungee text-yellow-500 text-2xl mb-6">
+    <i class="fas fa-tools mr-2"></i>Panel de Control
+  </h2>
 
-                <!-- AÃ±adir PelÃ­cula -->
-                <div>
-                    <h3 class="font-bold mb-4 flex items-center"><i class="fas fa-film mr-2 text-yellow-500"></i> Nueva PelÃ­cula</h3>
-                    <div class="space-y-3">
-                        <select id="movie-day-select">
-                            <!-- DinÃ¡mico -->
-                        </select>
-                        <input type="text" id="new-movie-title" placeholder="TÃ­tulo de la pelÃ­cula">
-                        <div class="grid grid-cols-2 gap-2">
-                            <input type="text" id="new-movie-time" placeholder="Hora (ej: 22:00h)">
-                            <input type="text" id="new-movie-img" placeholder="URL Imagen">
-                        </div>
-                        <textarea id="new-movie-desc" placeholder="Breve descripciÃ³n..."></textarea>
-                        <button id="add-movie-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black py-2 rounded-lg font-bold transition disabled:opacity-50">AÃ±adir PelÃ­cula</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Kiosko -->
-        <section class="bg-slate-800/50 backdrop-blur-sm rounded-3xl p-8 mb-20 border-2 border-dashed border-slate-700">
-            <div class="text-center mb-10">
-                <h2 class="text-3xl font-bungee text-yellow-500">Kiosko de Snacks</h2>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-                <div class="p-4 bg-slate-900/50 rounded-2xl"><i class="fas fa-cookie-bite text-3xl text-yellow-600 mb-2"></i><p class="font-bold">Palomitas</p></div>
-                <div class="p-4 bg-slate-900/50 rounded-2xl"><i class="fas fa-glass-whiskey text-3xl text-blue-400 mb-2"></i><p class="font-bold">Refrescos</p></div>
-                <div class="p-4 bg-slate-900/50 rounded-2xl"><i class="fas fa-ice-cream text-3xl text-pink-400 mb-2"></i><p class="font-bold">Helados</p></div>
-                <div class="p-4 bg-slate-900/50 rounded-2xl"><i class="fas fa-pizza-slice text-3xl text-red-500 mb-2"></i><p class="font-bold">Cena</p></div>
-            </div>
-        </section>
-
-    </main>
-
-    <footer class="py-12 text-center text-slate-500 text-sm border-t border-slate-800 bg-slate-900/30">
-        <p>Â© 2024 Cine de Verano - Hecho con â¤ï¸ para la familia</p>
-    </footer>
-
-    <!-- NotificaciÃ³n -->
-    <div id="notification" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-yellow-500 text-black px-8 py-4 rounded-2xl font-bold shadow-2xl hidden z-50">
-        Â¡Voto registrado para <span id="voted-movie-name"></span>! ð¿
+  <div class="grid md:grid-cols-2 gap-8">
+    <div>
+      <input id="new-day-label" placeholder="Ej: Día 3 - Domingo" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-3">
+      <button id="add-day-btn" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded font-bold">
+        Añadir día
+      </button>
     </div>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <div>
+      <select id="movie-day-select" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2"></select>
+      <input id="new-movie-title" placeholder="Título" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
+      <input id="new-movie-time" placeholder="Hora (22:00)" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
+      <textarea id="new-movie-desc" placeholder="Descripción" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-3"></textarea>
+      <button id="add-movie-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-black">
+        Añadir película
+      </button>
+    </div>
+  </div>
+</section>
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cine-verano-familia';
+</main>
 
-        let schedule = [];
-        let currentDayIndex = 0;
-        let currentUser = null;
+<footer class="text-center py-8 text-slate-500 text-sm">
+© 2025 Cine de Verano
+</footer>
 
-        // --- AUTHENTICATION (RULE 3) ---
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Auth error:", error);
-            }
-        };
+<script type="module">
+/* ========= OMDb ========= */
+const OMDB_API_KEY = "8b02fcfe";
+async function fetchMovieData(title) {
+  try {
+    const r = await fetch(
+      `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}`
+    );
+    const d = await r.json();
 
-        onAuthStateChanged(auth, (user) => {
-            currentUser = user;
-            if (user) {
-                setupRealtimeListener();
-            }
-        });
+    if (d.Response === "True") {
+      return {
+        img: d.Poster && d.Poster !== "N/A"
+          ? d.Poster
+          : "https://images.unsplash.com/photo-1485846234645-a62644f84728",
+        rating: d.imdbRating && d.imdbRating !== "N/A"
+          ? d.imdbRating
+          : null
+      };
+    }
+  } catch {}
 
-        // --- FIRESTORE REALTIME LISTENER (RULE 1) ---
-        function setupRealtimeListener() {
-            // RUTA FINAL: /artifacts/{appId}/public/data/schedule (6 segmentos exactos)
-            // 1: artifacts (coll)
-            // 2: appId (doc)
-            // 3: public (coll)
-            // 4: data (doc)
-            // 5: content (coll) <- AÃ±adimos este nivel intermedio
-            // 6: main (doc)
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'content', 'main');
-            
-            onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    schedule = docSnap.data().list || [];
-                } else {
-                    schedule = [{
-                        id: 'dia1',
-                        label: 'DÃ­a 1 - Viernes',
-                        movies: [{ 
-                            title: 'Bienvenidos al Cine', 
-                            time: '22:00h', 
-                            desc: 'Â¡Usa el panel de abajo para aÃ±adir las pelis de este verano!', 
-                            img: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=800' 
-                        }]
-                    }];
-                    setDoc(docRef, { list: schedule }).catch(e => console.error("Error creating doc:", e));
-                }
-                renderNav();
-                renderMovies();
-            }, (error) => {
-                console.error("Firestore Error:", error);
-            });
-        }
+  return {
+    img: "https://images.unsplash.com/photo-1485846234645-a62644f84728",
+    rating: null
+  };
+}
 
-        // --- RENDER FUNCTIONS ---
-        window.renderNav = function() {
-            const nav = document.getElementById('days-nav');
-            const select = document.getElementById('movie-day-select');
-            if (!nav || !select) return;
-            
-            nav.innerHTML = schedule.map((day, index) => `
-                <button onclick="changeDay(${index})" 
-                        class="day-tab px-6 py-2 rounded-full font-bold border-2 border-slate-700 whitespace-nowrap transition-all ${index === currentDayIndex ? 'active' : 'bg-slate-800 text-slate-400 hover:border-yellow-500/50'}">
-                    ${day.label}
-                </button>
-            `).join('');
+/* ========= FIREBASE ========= */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            select.innerHTML = schedule.map((day, index) => `
-                <option value="${index}">${day.label}</option>
-            `).join('');
-        };
+const firebaseConfig = {
+  apiKey: "AIzaSyDRztedy1U_erKHDY94KlUkxcZNwQcDUZw",
+  authDomain: "cine-verano.firebaseapp.com",
+  projectId: "cine-verano",
+  appId: "1:725171854528:web:a7ca7cd58ee3e024226125"
+};
 
-        window.renderMovies = function() {
-            const day = schedule[currentDayIndex];
-            if (!day) return;
-            
-            document.getElementById('current-day-title').innerText = day.label;
-            const grid = document.getElementById('movies-grid');
-            if (!grid) return;
-            
-            if (!day.movies || day.movies.length === 0) {
-                grid.innerHTML = `<p class="col-span-full text-center text-slate-500 py-10">No hay pelÃ­culas aÃ±adidas para este dÃ­a aÃºn.</p>`;
-                return;
-            }
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const docRef = doc(db, "cine-verano", "schedule");
 
-            grid.innerHTML = day.movies.map((movie) => `
-                <div class="movie-card bg-slate-800 rounded-3xl overflow-hidden shadow-2xl border border-slate-700 group">
-                    <div class="relative overflow-hidden">
-                        <img src="${movie.img || 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=800'}" alt="${movie.title}" class="w-full h-72 object-cover group-hover:scale-110 transition duration-500">
-                        <div class="absolute top-4 left-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-black uppercase tracking-tighter">
-                            ${movie.time}
-                        </div>
-                    </div>
-                    <div class="p-8">
-                        <h3 class="text-2xl font-bold mb-2 group-hover:text-yellow-400 transition">${movie.title}</h3>
-                        <p class="text-slate-400 text-sm leading-relaxed italic mb-6">"${movie.desc}"</p>
-                        <button onclick="vote('${movie.title}', this)" 
-                                class="w-full py-4 bg-yellow-500 hover:bg-yellow-400 text-black font-black rounded-2xl transition-all shadow-lg flex items-center justify-center space-x-2">
-                            <i class="fas fa-thumbs-up"></i>
-                            <span>VOTAR ESTA PELI</span>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        };
+let schedule = [];
+let currentDay = 0;
+let uid = null;
 
-        // --- ACTIONS ---
-        window.changeDay = (index) => {
-            currentDayIndex = index;
-            renderNav();
-            renderMovies();
-        };
+/* ========= DOM ========= */
+const newDayLabel = document.getElementById("new-day-label");
+const movieDaySelect = document.getElementById("movie-day-select");
+const newMovieTitle = document.getElementById("new-movie-title");
+const newMovieTime = document.getElementById("new-movie-time");
+const newMovieDesc = document.getElementById("new-movie-desc");
 
-        window.addNewDay = async () => {
-            if (!currentUser) return;
-            const label = document.getElementById('new-day-label').value;
-            if (!label) return;
-            
-            const btn = document.getElementById('add-day-btn');
-            btn.disabled = true;
+/* ========= AUTH ========= */
+signInAnonymously(auth);
+onAuthStateChanged(auth, user => {
+  if (user) {
+    uid = user.uid;
+    init();
+  }
+});
 
-            const newDay = {
-                id: 'day_' + Date.now(),
-                label: label,
-                movies: []
-            };
-            
-            const updatedList = [...schedule, newDay];
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'content', 'main');
-            try {
-                await setDoc(docRef, { list: updatedList });
-                document.getElementById('new-day-label').value = '';
-            } catch (e) {
-                console.error("Error saving day:", e);
-            } finally {
-                btn.disabled = false;
-            }
-        };
+function init() {
+  onSnapshot(docRef, snap => {
+    if (snap.exists()) schedule = snap.data().list;
+    else {
+      schedule = [{ label: "Día 1 - Viernes", movies: [] }];
+      setDoc(docRef, { list: schedule });
+    }
+    render();
+  });
+}
 
-        window.addNewMovie = async () => {
-            if (!currentUser) return;
-            const dayIdx = parseInt(document.getElementById('movie-day-select').value);
-            const title = document.getElementById('new-movie-title').value;
-            const time = document.getElementById('new-movie-time').value;
-            const img = document.getElementById('new-movie-img').value;
-            const desc = document.getElementById('new-movie-desc').value;
+/* ========= RENDER ========= */
+function render() {
+  const nav = document.getElementById("days-nav");
+  const sel = movieDaySelect;
+  nav.innerHTML = sel.innerHTML = "";
 
-            if (!title || !time) return;
+  schedule.forEach((d, i) => {
+    nav.innerHTML += `
+      <button onclick="changeDay(${i})"
+        class="day-tab px-4 py-2 rounded-full border ${i === currentDay ? 'active' : 'border-slate-600'}">
+        ${d.label}
+      </button>`;
+    sel.innerHTML += `<option value="${i}">${d.label}</option>`;
+  });
 
-            const btn = document.getElementById('add-movie-btn');
-            btn.disabled = true;
+  const day = schedule[currentDay];
+  document.getElementById("current-day-title").innerText = day.label;
+  const grid = document.getElementById("movies-grid");
+  grid.innerHTML = "";
 
-            const newMovie = { title, time, img, desc };
-            const updatedSchedule = [...schedule];
-            updatedSchedule[dayIdx].movies.push(newMovie);
-            
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'content', 'main');
-            try {
-                await setDoc(docRef, { list: updatedSchedule });
-                document.getElementById('new-movie-title').value = '';
-                document.getElementById('new-movie-time').value = '';
-                document.getElementById('new-movie-img').value = '';
-                document.getElementById('new-movie-desc').value = '';
-            } catch (e) {
-                console.error("Error saving movie:", e);
-            } finally {
-                btn.disabled = false;
-            }
-        };
+  day.movies.forEach((m, idx) => {
+    const votes = m.votes ? Object.keys(m.votes).length : 0;
+    const voted = m.votes && m.votes[uid];
 
-        window.vote = (movieTitle, btn) => {
-            const notification = document.getElementById('notification');
-            document.getElementById('voted-movie-name').innerText = movieTitle;
-            notification.classList.remove('hidden');
-            btn.innerHTML = '<i class="fas fa-check"></i> <span>Â¡VOTADO!</span>';
-            btn.classList.replace('bg-yellow-500', 'bg-green-500');
-            btn.classList.add('text-white');
-            btn.disabled = true;
-            setTimeout(() => notification.classList.add('hidden'), 3000);
-        };
+    grid.innerHTML += `
+      <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+        <img src="${m.img}" class="w-full aspect-[2/3] object-contain bg-black">
 
-        document.getElementById('add-day-btn').onclick = addNewDay;
-        document.getElementById('add-movie-btn').onclick = addNewMovie;
+        <div class="p-4">
+          <span class="bg-yellow-500 text-black px-3 py-1 rounded text-xs font-black">${m.time}</span>
 
-        initAuth();
-    </script>
+          <h3 class="text-xl font-bold mt-2">${m.title}</h3>
+
+          ${m.rating ? `
+            <div class="text-yellow-400 font-bold mt-1 flex items-center gap-1">
+              <i class="fas fa-star"></i> IMDb ${m.rating}/10
+            </div>` : ""}
+
+          <p class="text-slate-400 italic text-sm mt-2">${m.desc}</p>
+
+          <button
+            onclick="toggleVote(${currentDay}, ${idx})"
+            class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded
+              ${voted ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}">
+            <i class="fas fa-thumbs-up"></i>
+            <span>${votes}</span>
+          </button>
+        </div>
+      </div>`;
+  });
+}
+
+window.changeDay = i => { currentDay = i; render(); };
+
+/* ========= VOTOS ========= */
+window.toggleVote = async (d, m) => {
+  const movie = schedule[d].movies[m];
+  if (!movie.votes) movie.votes = {};
+
+  if (movie.votes[uid]) delete movie.votes[uid];
+  else movie.votes[uid] = true;
+
+  await setDoc(docRef, { list: schedule });
+};
+
+/* ========= ADD DAY ========= */
+document.getElementById("add-day-btn").onclick = async () => {
+  if (!newDayLabel.value) return;
+  schedule.push({ label: newDayLabel.value, movies: [] });
+  newDayLabel.value = "";
+  await setDoc(docRef, { list: schedule });
+};
+
+/* ========= ADD MOVIE ========= */
+document.getElementById("add-movie-btn").onclick = async () => {
+  const d = movieDaySelect.value;
+  const t = newMovieTitle.value;
+  const h = newMovieTime.value;
+  const de = newMovieDesc.value;
+  if (!t || !h) return;
+
+  const data = await fetchMovieData(t);
+
+  schedule[d].movies.push({
+    title: t,
+    time: h,
+    img: data.img,
+    rating: data.rating,
+    desc: de,
+    votes: {}
+  });
+
+  newMovieTitle.value = "";
+  newMovieTime.value = "";
+  newMovieDesc.value = "";
+
+  await setDoc(docRef, { list: schedule });
+};
+</script>
+
 </body>
 </html>
