@@ -143,7 +143,6 @@ const newDayLabel = document.getElementById("new-day-label");
 const movieDaySelect = document.getElementById("movie-day-select");
 const newMovieTitle = document.getElementById("new-movie-title");
 const newMovieTime = document.getElementById("new-movie-time");
-const newMovieDesc = document.getElementById("new-movie-desc");
 
 /* ========= AUTH ========= */
 signInAnonymously(auth);
@@ -247,7 +246,6 @@ document.getElementById("add-movie-btn").onclick = async () => {
   const d = movieDaySelect.value;
   const t = newMovieTitle.value;
   const h = newMovieTime.value;
-  const de = newMovieDesc.value;
   if (!t || !h) return;
 
   const data = await fetchMovieData(t);
@@ -263,7 +261,6 @@ document.getElementById("add-movie-btn").onclick = async () => {
 
   newMovieTitle.value = "";
   newMovieTime.value = "";
-  newMovieDesc.value = "";
 
   await setDoc(docRef, { list: schedule });
 };
