@@ -11,11 +11,8 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@300;400;700&display=swap');
   body { font-family: 'Inter', sans-serif; background:#0f172a; color:#f8fafc }
-
   .font-bungee { font-family:'Bungee', cursive }
-  
   .day-tab.active { background:#eab308; color:#000 }
-  
   .hero-gradient {
     background:
       linear-gradient(180deg, rgba(15,23,42,0.2) 0%, rgba(15,23,42,1) 100%),
@@ -24,12 +21,7 @@
     background-position: center;
     height: 50vh;
   }
-
-  .title-glow {
-    text-shadow:
-      0 0 20px rgba(234,179,8,0.6),
-      0 5px 15px rgba(234,179,8,0.4);
-  }
+  .title-glow { text-shadow:0 0 20px rgba(234,179,8,0.6),0 5px 15px rgba(234,179,8,0.4); }
 </style>
 </head>
 
@@ -37,12 +29,8 @@
 
 <header class="relative hero-gradient flex items-center justify-center text-center px-4">
   <div class="z-10 mt-16">
-    <h1 class="text-5xl md:text-8xl font-bungee text-yellow-400 title-glow mb-4">
-      Cine de Verano
-    </h1>
-    <p class="text-lg md:text-2xl font-light tracking-[0.25em] uppercase text-slate-200">
-      Para que luego os quejéis
-    </p>
+    <h1 class="text-5xl md:text-8xl font-bungee text-yellow-400 title-glow mb-4">Cine de Verano</h1>
+    <p class="text-lg md:text-2xl font-light tracking-[0.25em] uppercase text-slate-200">Para que luego os quejéis</p>
   </div>
 </header>
 
@@ -54,35 +42,39 @@
 
 <section class="mb-16">
   <h2 id="current-day-title" class="text-3xl font-bold mb-6"></h2>
-  <!-- Aquí: mobile-first será una lista vertical con cards en horizontal; en md+ vuelve a grid de 3 columnas -->
   <div id="movies-grid" class="flex flex-col gap-6 md:grid md:grid-cols-3"></div>
 </section>
 
-<section class="bg-slate-900 p-8 rounded-3xl border border-yellow-500/20">
-  <h2 class="font-bungee text-yellow-500 text-2xl mb-6">
-    <i class="fas fa-tools mr-2"></i>Panel de Control
-  </h2>
+<!-- PANEL DE CONTROL: se muestra SOLO si eres admin -->
+<section id="control-panel" class="hidden bg-slate-900 p-8 rounded-3xl border border-yellow-500/20">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="font-bungee text-yellow-500 text-2xl">
+      <i class="fas fa-tools mr-2"></i>Panel de Control
+    </h2>
+    <button id="admin-logout-btn" class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded font-bold">Cerrar sesión</button>
+  </div>
 
   <div class="grid md:grid-cols-2 gap-8">
     <div>
       <input id="new-day-label" placeholder="Ej: Día 3 - Domingo" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-3">
-      <button id="add-day-btn" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded font-bold">
-        Añadir día
-      </button>
+      <button id="add-day-btn" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded font-bold">Añadir día</button>
     </div>
-
     <div>
       <select id="movie-day-select" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2"></select>
       <input id="new-movie-title" placeholder="Título" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
       <input id="new-movie-time" placeholder="Hora (22:00)" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
-      <button id="add-movie-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-black">
-        Añadir película
-      </button>
+      <button id="add-movie-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-black">Añadir película</button>
     </div>
   </div>
 </section>
 
-</main>
+<!-- PANEL DE LOGIN ADMIN: se muestra SOLO si NO eres admin -->
+<div id="admin-login-panel" class="max-w-md mx-auto bg-slate-900 p-6 rounded-xl border border-yellow-500/20 mb-6">
+  <h3 class="text-yellow-500 font-bungee text-xl mb-4">Inicia sesión</h3>
+  <input id="admin-email" placeholder="Email" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
+  <input id="admin-password" type="password" placeholder="Contraseña" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
+  <button id="admin-login-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-bold">Entrar como admin</button>
+</div>
 
 <footer class="text-center py-8 text-slate-500 text-sm">
   <p>© 2025 Cine de Verano</p>
@@ -90,38 +82,12 @@
 </footer>
 
 <script type="module">
-/* ========= OMDb ========= */
-const OMDB_API_KEY = "8b02fcfe";
-async function fetchMovieData(title) {
-  try {
-    const r = await fetch(
-      `https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}`
-    );
-    const d = await r.json();
-
-    if (d.Response === "True") {
-      return {
-        img: d.Poster && d.Poster !== "N/A"
-          ? d.Poster
-          : "https://images.unsplash.com/photo-1485846234645-a62644f84728",
-        rating: d.imdbRating && d.imdbRating !== "N/A"
-          ? d.imdbRating
-          : null
-      };
-    }
-  } catch {}
-
-  return {
-    img: "https://images.unsplash.com/photo-1485846234645-a62644f84728",
-    rating: null
-  };
-}
-
-/* ========= FIREBASE ========= */
+/* ========== IMPORTS FIREBASE ========== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+/* ========== FIREBASE CONFIG ========== */
 const firebaseConfig = {
   apiKey: "AIzaSyDRztedy1U_erKHDY94KlUkxcZNwQcDUZw",
   authDomain: "cine-verano.firebaseapp.com",
@@ -134,50 +100,89 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const docRef = doc(db, "cine-verano", "schedule");
 
+/* ========== ESTADO GLOBAL ========== */
 let schedule = [];
 let currentDay = 0;
 let uid = null;
+let isAdminFlag = false;
 
-/* ========= DOM ========= */
-const newDayLabel = document.getElementById("new-day-label");
-const movieDaySelect = document.getElementById("movie-day-select");
-const newMovieTitle = document.getElementById("new-movie-title");
-const newMovieTime = document.getElementById("new-movie-time");
+/* ========== FUNCIONES AUX ========== */
+async function isAdmin(uidCheck) {
+  if (!uidCheck) return false;
+  const snap = await getDoc(doc(db, "admins", uidCheck));
+  return snap.exists();
+}
 
-/* ========= AUTH ========= */
-signInAnonymously(auth);
-onAuthStateChanged(auth, user => {
-  if (user) {
-    uid = user.uid;
-    // Mostrar el ID acortado en el footer
-    document.getElementById("user-id-display").innerText = `ID de sesión: ${user.uid.slice(-6)}`;
-    init();
+/* ========== ADMIN LOGIN / LOGOUT ========== */
+document.getElementById("admin-login-btn").onclick = async () => {
+  const email = document.getElementById("admin-email").value;
+  const password = document.getElementById("admin-password").value;
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged gestionará la UI al autenticarse
+  } catch (err) {
+    console.error(err);
+    alert("Credenciales incorrectas o usuario no admin.");
   }
-});
+};
 
+document.getElementById("admin-logout-btn").onclick = async () => {
+  await signOut(auth);
+  alert("Sesión cerrada");
+};
+
+/* ========== OMDb ========== */
+const OMDB_API_KEY = "8b02fcfe";
+async function fetchMovieData(title) {
+  try {
+    const r = await fetch(`https://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}`);
+    const d = await r.json();
+    if (d.Response === "True") {
+      return {
+        img: d.Poster && d.Poster !== "N/A" ? d.Poster : "https://images.unsplash.com/photo-1485846234645-a62644f84728",
+        rating: d.imdbRating && d.imdbRating !== "N/A" ? d.imdbRating : null
+      };
+    }
+  } catch (e) {
+    console.error("OMDb error", e);
+  }
+  return { img: "https://images.unsplash.com/photo-1485846234645-a62644f84728", rating: null };
+}
+
+/* ========== INIT: escucha schedule ========= */
 function init() {
   onSnapshot(docRef, snap => {
-    if (snap.exists()) schedule = snap.data().list;
-    else {
-      schedule = [{ label: "Día 1 - Viernes", movies: [] }];
-      setDoc(docRef, { list: schedule });
-    }
+    schedule = snap.exists() ? snap.data().list : [{ label: "Día 1 - Viernes", movies: [] }];
+    if (!snap.exists()) setDoc(docRef, { list: schedule });
     render();
   });
 }
+init();
 
-/* ========= RENDER ========= */
+/* ========== AUTH STATE CHANGES ========= */
+onAuthStateChanged(auth, async (user) => {
+  uid = user ? user.uid : null;
+  isAdminFlag = uid ? await isAdmin(uid) : false;
+
+  // mostrar login si NO eres admin, ocultarlo si sí lo eres
+  document.getElementById("admin-login-panel").classList.toggle("hidden", isAdminFlag);
+  // mostrar control si eres admin, ocultarlo si no
+  document.getElementById("control-panel").classList.toggle("hidden", !isAdminFlag);
+
+  // mostrar id en footer si admin
+  document.getElementById("user-id-display").innerText = isAdminFlag ? `Admin: ${uid.slice(0,6)}` : "";
+
+  render();
+});
+
+/* ========== RENDER ========= */
 function render() {
   const nav = document.getElementById("days-nav");
-  const sel = movieDaySelect;
+  const sel = document.getElementById("movie-day-select");
   nav.innerHTML = sel.innerHTML = "";
 
   schedule.forEach((d, i) => {
-    nav.innerHTML += `
-      <button onclick="changeDay(${i})"
-        class="day-tab px-4 py-2 rounded-full border ${i === currentDay ? 'active' : 'border-slate-600'}">
-        ${d.label}
-      </button>`;
+    nav.innerHTML += `<button onclick="changeDay(${i})" class="day-tab px-4 py-2 rounded-full border ${i===currentDay?'active':'border-slate-600'}">${d.label}</button>`;
     sel.innerHTML += `<option value="${i}">${d.label}</option>`;
   });
 
@@ -187,78 +192,60 @@ function render() {
   grid.innerHTML = "";
 
   day.movies.forEach((m, idx) => {
-      const votes = m.votes ? Object.keys(m.votes).length : 0;
-      const voted = m.votes && m.votes[uid];
+    const votes = m.votes ? Object.keys(m.votes).length : 0;
+    // solo admins pueden votar → solo se marca como "voted" para admins
+    const voted = isAdminFlag && uid && m.votes && m.votes[uid];
 
-      grid.innerHTML += `
-        <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch">
-          <img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">
-
-          <div class="p-4 flex-1 w-full">
-            <div class="flex items-start justify-between gap-4">
-              <span class="bg-yellow-500 text-black px-3 py-1 rounded text-xs font-black">${m.time}</span>
-            </div>
-
-            <h3 class="text-xl font-bold mt-2">${m.title}</h3>
-
-            ${m.rating ? `
-              <div class="text-yellow-400 font-bold mt-1 flex items-center gap-1">
-                <i class="fas fa-star"></i> IMDb ${m.rating}/10
-              </div>` : ""}
-
-            <button
-              onclick="toggleVote(${currentDay}, ${idx})"
-              class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded
-                ${voted ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}">
-              <i class="fas fa-thumbs-up"></i>
-              <span>${votes}</span>
-            </button>
+    grid.innerHTML += `
+      <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch">
+        <img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">
+        <div class="p-4 flex-1 w-full">
+          <div class="flex items-start justify-between gap-4">
+            <span class="bg-yellow-500 text-black px-3 py-1 rounded text-xs font-black">${m.time}</span>
           </div>
-        </div>`;
-    });
+          <h3 class="text-xl font-bold mt-2">${m.title}</h3>
+          ${m.rating ? `<div class="text-yellow-400 font-bold mt-1 flex items-center gap-1"><i class="fas fa-star"></i> IMDb ${m.rating}/10</div>` : ""}
+          <button onclick="toggleVote(${currentDay},${idx})" class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded ${voted ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}" ${!isAdminFlag ? 'disabled' : ''}>
+            <i class="fas fa-thumbs-up"></i><span>${votes}</span>
+          </button>
+        </div>
+      </div>`;
+  });
 }
 
 window.changeDay = i => { currentDay = i; render(); };
 
-/* ========= VOTOS ========= */
-window.toggleVote = async (d, m) => {
+/* ========== VOTOS: SOLO ADMINS PUEDEN VOTAR ========== */
+window.toggleVote = async (d,m) => {
+  if (!isAdminFlag || !uid) { alert("Solo los administradores pueden votar."); return; }
   const movie = schedule[d].movies[m];
   if (!movie.votes) movie.votes = {};
-
   if (movie.votes[uid]) delete movie.votes[uid];
   else movie.votes[uid] = true;
-
   await setDoc(docRef, { list: schedule });
+  render();
 };
 
-/* ========= ADD DAY ========= */
+/* ========== ADD DAY / MOVIE: SOLO ADMINS ========= */
 document.getElementById("add-day-btn").onclick = async () => {
-  if (!newDayLabel.value) return;
-  schedule.push({ label: newDayLabel.value, movies: [] });
-  newDayLabel.value = "";
+  if (!isAdminFlag) { alert("Solo los administradores pueden añadir días."); return; }
+  const label = document.getElementById("new-day-label").value;
+  if (!label) return;
+  schedule.push({ label, movies: [] });
+  document.getElementById("new-day-label").value = "";
   await setDoc(docRef, { list: schedule });
 };
 
-/* ========= ADD MOVIE ========= */
 document.getElementById("add-movie-btn").onclick = async () => {
-  const d = movieDaySelect.value;
-  const t = newMovieTitle.value;
-  const h = newMovieTime.value;
+  if (!isAdminFlag) { alert("Solo los administradores pueden añadir películas."); return; }
+  const d = document.getElementById("movie-day-select").value;
+  const t = document.getElementById("new-movie-title").value;
+  const h = document.getElementById("new-movie-time").value;
   if (!t || !h) return;
-
   const data = await fetchMovieData(t);
-
-  schedule[d].movies.push({
-    title: t,
-    time: h,
-    img: data.img,
-    rating: data.rating,
-    votes: {}
-  });
-
-  newMovieTitle.value = "";
-  newMovieTime.value = "";
-
+  schedule[d].movies.push({ title: t, time: h, img: data.img, rating: data.rating, votes: {} });
+  document.getElementById("new-movie-title").value = "";
+  document.getElementById("new-movie-time").value = "";
   await setDoc(docRef, { list: schedule });
 };
 </script>
