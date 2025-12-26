@@ -73,14 +73,13 @@
     <p class="text-lg md:text-2xl font-light tracking-[0.25em] uppercase text-slate-200">Para que luego os quejéis</p>
   </div>
 
-  <div id="navbar-content" class="hidden fixed top-0 left-0 w-full bg-slate-900/95 backdrop-blur-md border-b border-yellow-500/20 z-50 px-6 py-3 flex items-center justify-between">
+  <div id="navbar-content" class="hidden fixed top-0 left-0 w-full z-50 px-6 py-3 flex items-center justify-between border-b border-yellow-500/20 backdrop-blur-md">
     <div class="flex items-center gap-3">
       <div class="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center text-black">
         <i class="fas fa-film"></i>
       </div>
       <span class="font-bungee text-yellow-500 text-lg tracking-wider">Cine de Verano</span>
     </div>
-    
     <button class="text-white text-2xl p-2 hover:bg-slate-800 rounded transition-colors">
       <i class="fas fa-bars"></i>
     </button>
@@ -89,61 +88,53 @@
 
 <main class="max-w-6xl mx-auto px-6 py-12">
 
-<!-- PANEL DE LOGIN ADMIN: se muestra SOLO si NO eres admin -->
-<div id="admin-login-panel" class="max-w-md mx-auto bg-slate-900 p-6 rounded-xl border border-yellow-500/20 mb-6">
-  <h3 class="text-yellow-500 font-bungee text-xl mb-4">Inicia sesión</h3>
-  <input id="admin-email" placeholder="Email" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
-  <input id="admin-password" type="password" placeholder="Contraseña" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
-  <button id="admin-login-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-bold">Entrar como admin</button>
-</div>
+  <div id="admin-login-panel" class="max-w-md mx-auto bg-slate-900 p-6 rounded-xl border border-yellow-500/20 mb-6 shadow-2xl">
+    <h3 class="text-yellow-500 font-bungee text-xl mb-4 text-center">Inicia sesión</h3>
+    <input id="admin-email" placeholder="Email" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-3 text-white">
+    <input id="admin-password" type="password" placeholder="Contraseña" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-4 text-white">
+    <button id="admin-login-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded font-bold transition-all">Entrar como admin</button>
+  </div>
 
-<div id="group-selector" class="mb-6 hidden text-center">
-  <label class="mr-2 font-bold">Grupo:</label>
-  <select id="group-select" class="bg-slate-800 p-2 rounded"></select>
-</div>
+  <div id="main-content" class="hidden">
+    
+    <section class="mb-16">
+      <div class="relative inline-block mb-8">
+        <button id="current-day-title" onclick="toggleMenu()" class="text-4xl font-bold flex items-center gap-3 hover:text-yellow-400 transition-colors">
+          <span></span>
+          <i class="fas fa-chevron-down text-xl text-yellow-500"></i>
+        </button>
 
-<section class="mb-10 text-center">
-  <div id="days-nav" class="flex gap-4 justify-center flex-wrap"></div>
-</section>
-
-<section class="mb-16">
-  <div class="relative inline-block mb-6 group">
-    <button id="current-day-title" onclick="toggleMenu()" class="font-bold flex items-center gap-3 hover:text-yellow-400 transition-colors">
-      <span>Cargando...</span>
-      <i class="fas fa-chevron-down text-lg text-yellow-500"></i>
-    </button>
-
-    <div id="dropdown-menu" class="hidden absolute left-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-      <div id="dropdown-list" class="flex flex-col">
+        <div id="dropdown-menu" class="hidden absolute left-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+          <div id="dropdown-list" class="flex flex-col"></div>
         </div>
-    </div>
-  </div>
+      </div>
 
-  <div id="movies-grid" class="flex flex-col gap-6 md:grid md:grid-cols-3"></div>
-</section>
+      <div id="movies-grid" class="flex flex-col gap-6 md:grid md:grid-cols-3"></div>
+    </section>
 
-<!-- PANEL DE CONTROL: se muestra SOLO si eres admin -->
-<section id="control-panel" class="hidden bg-slate-900 p-8 rounded-3xl border border-yellow-500/20">
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="font-bungee text-yellow-500 text-2xl">
-      <i class="fas fa-tools mr-2"></i>Panel de Control
-    </h2>
-    <button id="admin-logout-btn" class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded font-bold">Cerrar sesión</button>
-  </div>
+    <section id="control-panel" class="hidden bg-slate-900 p-8 rounded-3xl border border-yellow-500/20">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bungee text-yellow-500 text-2xl">
+          <i class="fas fa-tools mr-2"></i>Panel de Control
+        </h2>
+        <button id="admin-logout-btn" class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded font-bold">Cerrar sesión</button>
+      </div>
 
-  <div class="grid md:grid-cols-2 gap-8">
-    <div>
-      <input id="new-category-label" placeholder="Ej: Día 20, Recomendaciones, ..." class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-3">
-      <button id="add-category-btn" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded font-bold">Añadir categoría</button>
-    </div>
-    <div>
-      <select id="movie-day-select" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2"></select>
-      <input id="new-movie-title" placeholder="Título" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
-      <input id="new-movie-details" placeholder="Ej: 22:00, Temporada 1, ..." class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
-      <button id="add-movie-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-black">Añadir película</button>
-    </div>
+      <div class="grid md:grid-cols-2 gap-8">
+        <div>
+          <input id="new-category-label" placeholder="Ej: Día 20, Recomendaciones, ..." class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-3">
+          <button id="add-category-btn" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded font-bold">Añadir categoría</button>
+        </div>
+        <div>
+          <select id="movie-day-select" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2"></select>
+          <input id="new-movie-title" placeholder="Título" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
+          <input id="new-movie-details" placeholder="Ej: 22:00, Temporada 1, ..." class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
+          <button id="add-movie-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-black">Añadir película</button>
+        </div>
+      </div>
+    </section>
   </div>
-</section>
+</main>
 
 <footer class="text-center py-8 text-slate-500 text-sm">
   <p>© 2025 Cine de Verano</p>
@@ -244,8 +235,6 @@ function init() {
     schedule = snap.exists()
       ? snap.data().list
       : [{ label: "Día 1", movies: [] }];
-    if (!snap.exists()) setDoc(docRef, { list: schedule });
-    currentDay = 0;
     render();
   });
 }
@@ -256,8 +245,8 @@ init();
 onAuthStateChanged(auth, async (user) => {
   const loginPanel = document.getElementById("admin-login-panel");
   const controlPanel = document.getElementById("control-panel");
+  const mainContent = document.getElementById("main-content"); 
   
-  // Elementos del Header
   const mainHeader = document.getElementById("main-header");
   const heroContent = document.getElementById("hero-content");
   const navbarContent = document.getElementById("navbar-content");
@@ -266,8 +255,9 @@ onAuthStateChanged(auth, async (user) => {
     uid = null;
     isAdminFlag = false;
     
-    // MOSTRAR Modo Invitado (Hero gigante)
+    // MODO LOGIN: Solo se ve el panel de login y el Hero gigante
     loginPanel.classList.remove("hidden");
+    mainContent.classList.add("hidden"); 
     controlPanel.classList.add("hidden");
     
     mainHeader.classList.remove("is-logged-in");
@@ -284,8 +274,9 @@ onAuthStateChanged(auth, async (user) => {
     selectedGroup = userGroups[0];
     docRef = doc(db, "cine-verano", selectedGroup);
     
-    // MOSTRAR Modo Admin (Navbar discreto)
+    // MODO APP: Se oculta login y se muestra la cartelera
     loginPanel.classList.add("hidden");
+    mainContent.classList.remove("hidden"); 
     controlPanel.classList.remove("hidden");
     
     mainHeader.classList.add("is-logged-in");
@@ -293,7 +284,6 @@ onAuthStateChanged(auth, async (user) => {
     navbarContent.classList.remove("hidden");
     
     init();
-    renderGroupSelector();
   } else {
     alert("Usuario sin permisos.");
     await signOut(auth);
@@ -301,72 +291,76 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 /* ========== RENDER ========= */
+/* VOTOS */
+window.toggleVote = async (d, m) => {
+  if (!isAdminFlag || !uid || !docRef) return;
+  
+  const movie = schedule[d].movies[m];
+  if (!movie.votes) movie.votes = {};
+  
+  if (movie.votes[uid]) {
+    delete movie.votes[uid];
+  } else {
+    movie.votes[uid] = true;
+  }
+  
+  await setDoc(docRef, { list: schedule });
+};
+
+/* RENDER */
 function render() {
   const titleContainer = document.getElementById("current-day-title").querySelector('span');
   const dropdownList = document.getElementById("dropdown-list");
+  const daySelect = document.getElementById("movie-day-select"); 
   
   const day = schedule[currentDay];
-  titleContainer.innerText = day ? day.label : "Seleccionar";
+  titleContainer.innerText = day ? day.label : (selectedGroup || "");
 
-  // 1. Generar Menú Desplegable
+  // 1. Menú Desplegable y Selector de días del panel
   dropdownList.innerHTML = "";
-  if (userGroups && userGroups.length > 1) {
+  daySelect.innerHTML = ""; 
+  
+  if (userGroups.length > 1) {
     dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Cambiar Grupo</div>`;
     userGroups.forEach(g => {
       dropdownList.innerHTML += `
         <button onclick="changeGroup('${g}')" class="px-4 py-2 text-left hover:bg-slate-700 text-sm ${g === selectedGroup ? 'text-yellow-500' : 'text-slate-300'}">
           <i class="fas fa-users mr-2 opacity-50"></i>${g}
-        </button>
-      `;
+        </button>`;
     });
     dropdownList.innerHTML += `<div class="border-t border-slate-700 my-1"></div>`;
   }
-
+  
   dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Días / Cartelera</div>`;
   schedule.forEach((d, i) => {
     dropdownList.innerHTML += `
-      <button onclick="changeDay(${i})" class="px-4 py-3 text-left hover:bg-slate-800 border-b border-slate-800 last:border-0 ${i === currentDay ? 'text-yellow-500 font-bold' : 'text-white'}">
+      <button onclick="changeDay(${i})" class="px-4 py-3 text-left hover:bg-slate-800 border-b border-slate-800 last:border-0 ${i === currentDay ? 'text-yellow-400 font-bold' : 'text-white'}">
         <i class="fas fa-calendar-day mr-2 opacity-50"></i>${d.label}
-      </button>
-    `;
+      </button>`;
+    
+    daySelect.innerHTML += `<option value="${i}">${d.label}</option>`;
   });
 
-  // 2. Renderizar las películas
+  // 2. Grid de Películas
   const grid = document.getElementById("movies-grid");
   grid.innerHTML = "";
   
   if (day && day.movies) {
     day.movies.forEach((m, idx) => {
-      // Cálculo de variables ANTES de usarlas
       const votes = m.votes ? Object.keys(m.votes).length : 0;
-      const voted = isAdminFlag && uid && m.votes && m.votes[uid];
-      
-      // Lógica de detección de texto vs hora
+      const voted = uid && m.votes && m.votes[uid];
       const isTime = /^[\d:.]+$/.test(m.time); 
       const extraClass = isTime ? '' : 'text-custom';
 
       grid.innerHTML += `
         <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch shadow-xl transition-transform hover:scale-[1.01]">
           <img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">
-          
           <div class="p-4 flex-1 w-full">
-            <div class="flex items-start justify-between">
-              <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">
-                ${m.time}
-              </span>
-            </div>
-            
+            <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">${m.time}</span>
             <h3 class="text-xl font-bold mt-2 leading-tight">${m.title}</h3>
-            
-            ${m.rating ? `
-              <div class="text-yellow-400 font-bold mt-1 flex items-center gap-1">
-                <i class="fas fa-star text-sm"></i> IMDb ${m.rating}/10
-              </div>
-            ` : ""}
-            
-            <button onclick="toggleVote(${currentDay},${idx})" class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${voted ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}" ${!isAdminFlag ? 'disabled' : ''}>
-              <i class="fas fa-thumbs-up"></i>
-              <span>${votes}</span>
+            ${m.rating ? `<div class="text-yellow-400 font-bold mt-1 flex items-center gap-1 text-sm"><i class="fas fa-star"></i> IMDb ${m.rating}/10</div>` : ""}
+            <button onclick="toggleVote(${currentDay},${idx})" class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${voted ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}">
+              <i class="fas fa-thumbs-up"></i><span>${votes}</span>
             </button>
           </div>
         </div>`;
@@ -374,7 +368,7 @@ function render() {
   }
 }
 
-// NUEVAS FUNCIONES DE CONTROL
+// FUNCIONES DE CONTROL
 window.toggleMenu = () => {
   const menu = document.getElementById("dropdown-menu");
   menu.classList.toggle("hidden");
