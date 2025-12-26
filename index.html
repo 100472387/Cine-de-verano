@@ -36,6 +36,11 @@
 
 <main class="max-w-6xl mx-auto px-6 py-12">
 
+<div id="group-selector" class="mb-6 hidden text-center">
+  <label class="mr-2 font-bold">Grupo:</label>
+  <select id="group-select" class="bg-slate-800 p-2 rounded"></select>
+</div>
+
 <section class="mb-10 text-center">
   <div id="days-nav" class="flex gap-4 justify-center flex-wrap"></div>
 </section>
@@ -85,7 +90,7 @@
 /* ========== IMPORTS FIREBASE ========== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /* ========== FIREBASE CONFIG ========== */
 const firebaseConfig = {
@@ -98,19 +103,35 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const docRef = doc(db, "cine-verano", "schedule");
 
 /* ========== ESTADO GLOBAL ========== */
 let schedule = [];
 let currentDay = 0;
 let uid = null;
 let isAdminFlag = false;
+let userGroups = [];
+let selectedGroup = null;
+let docRef = null;
+let unsubscribeSchedule = null;
 
 /* ========== FUNCIONES AUX ========== */
-async function isAdmin(uidCheck) {
-  if (!uidCheck) return false;
-  const snap = await getDoc(doc(db, "admins", uidCheck));
-  return snap.exists();
+async function getUserGroups(uid) {
+  const q = query(collection(db, "groups"), where("members", "array-contains", uid));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.id);
+}
+
+async function isAdminByGroup(uid) {
+  if (!uid) return false;
+
+  const groupsSnap = await getDocs(collection(db, "groups"));
+
+  for (const groupDoc of groupsSnap.docs) {
+    const members = groupDoc.data().members || [];
+    if (members.includes(uid)) return true;
+  }
+
+  return false;
 }
 
 /* ========== ADMIN LOGIN / LOGOUT ========== */
@@ -151,28 +172,58 @@ async function fetchMovieData(title) {
 
 /* ========== INIT: escucha schedule ========= */
 function init() {
-  onSnapshot(docRef, snap => {
-    schedule = snap.exists() ? snap.data().list : [{ label: "Día 1 - Viernes", movies: [] }];
+  if (!docRef) return;
+
+  // cerrar listener anterior
+  if (unsubscribeSchedule) unsubscribeSchedule();
+  unsubscribeSchedule = onSnapshot(docRef, snap => {
+    schedule = snap.exists()
+      ? snap.data().list
+      : [{ label: "Día 1", movies: [] }];
     if (!snap.exists()) setDoc(docRef, { list: schedule });
+    currentDay = 0;
     render();
   });
 }
+
 init();
 
 /* ========== AUTH STATE CHANGES ========= */
 onAuthStateChanged(auth, async (user) => {
-  uid = user ? user.uid : null;
-  isAdminFlag = uid ? await isAdmin(uid) : false;
+  const loginPanel = document.getElementById("admin-login-panel");
+  const controlPanel = document.getElementById("control-panel");
 
-  // mostrar login si NO eres admin, ocultarlo si sí lo eres
-  document.getElementById("admin-login-panel").classList.toggle("hidden", isAdminFlag);
-  // mostrar control si eres admin, ocultarlo si no
-  document.getElementById("control-panel").classList.toggle("hidden", !isAdminFlag);
+  if (!user) {
+    uid = null;
+    isAdminFlag = false;
+    userGroups = [];
+    selectedGroup = null;
+    
+    // MOSTRAR login y OCULTAR control
+    loginPanel.classList.remove("hidden");
+    controlPanel.classList.add("hidden");
+    return;
+  }
 
-  // mostrar id en footer si admin
-  document.getElementById("user-id-display").innerText = isAdminFlag ? `Admin: ${uid.slice(0,6)}` : "";
+  uid = user.uid;
+  userGroups = await getUserGroups(uid);
+  isAdminFlag = userGroups.length > 0;
 
-  render();
+  if (isAdminFlag) {
+    selectedGroup = userGroups[0];
+    docRef = doc(db, "cine-verano", selectedGroup);
+    
+    // OCULTAR login y MOSTRAR control
+    loginPanel.classList.add("hidden");
+    controlPanel.classList.remove("hidden");
+    
+    init();
+    renderGroupSelector();
+  } else {
+    // Si está logueado pero no es admin de ningún grupo
+    alert("Usuario autenticado pero no tienes permisos de administrador.");
+    await signOut(auth);
+  }
 });
 
 /* ========== RENDER ========= */
@@ -211,6 +262,31 @@ function render() {
         </div>
       </div>`;
   });
+}
+
+function renderGroupSelector() {
+  const box = document.getElementById("group-selector");
+  const sel = document.getElementById("group-select");
+
+  if (userGroups.length <= 1) {
+    box.classList.add("hidden");
+    return;
+  }
+
+  box.classList.remove("hidden");
+  sel.innerHTML = "";
+
+  userGroups.forEach(g => {
+    sel.innerHTML += `<option value="${g}">${g}</option>`;
+  });
+
+  sel.value = selectedGroup;
+
+  sel.onchange = () => {
+    selectedGroup = sel.value;
+    docRef = doc(db, "cine-verano", selectedGroup);
+    init();
+  };
 }
 
 window.changeDay = i => { currentDay = i; render(); };
