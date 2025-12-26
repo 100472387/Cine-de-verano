@@ -22,19 +22,80 @@
     height: 50vh;
   }
   .title-glow { text-shadow:0 0 20px rgba(234,179,8,0.6),0 5px 15px rgba(234,179,8,0.4); }
+  header.is-logged-in { height: 60px !important; background: none !important; }
+
+  #current-day-title {
+      font-size: 1.875rem; 
+      line-height: 2.25rem;
+  }
+
+  @media (min-width: 768px) {
+      #current-day-title {
+          font-size: 2.25rem; 
+      }
+  }
+
+  #navbar-content {
+      background-color: #1e293b !important; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  }
+
+  .time-badge {
+    font-size: 0.8rem !important; 
+    padding: 3px 10px !important;
+    font-weight: 700 !important; 
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 45px;
+    text-transform: uppercase;
+  }
+
+  .time-badge.text-custom {
+      font-size: 0.7rem !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.02em;
+  }
+
+  .movie-title {
+      display: block;
+      overflow: visible;
+      white-space: normal;
+  }
 </style>
 </head>
 
 <body class="antialiased">
 
-<header class="relative hero-gradient flex items-center justify-center text-center px-4">
-  <div class="z-10 mt-16">
+<header id="main-header" class="relative hero-gradient flex items-center justify-center text-center px-4 transition-all duration-500">
+  <div id="hero-content" class="z-10 mt-16">
     <h1 class="text-5xl md:text-8xl font-bungee text-yellow-400 title-glow mb-4">Cine de Verano</h1>
     <p class="text-lg md:text-2xl font-light tracking-[0.25em] uppercase text-slate-200">Para que luego os quejéis</p>
+  </div>
+
+  <div id="navbar-content" class="hidden fixed top-0 left-0 w-full bg-slate-900/95 backdrop-blur-md border-b border-yellow-500/20 z-50 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center text-black">
+        <i class="fas fa-film"></i>
+      </div>
+      <span class="font-bungee text-yellow-500 text-lg tracking-wider">Cine de Verano</span>
+    </div>
+    
+    <button class="text-white text-2xl p-2 hover:bg-slate-800 rounded transition-colors">
+      <i class="fas fa-bars"></i>
+    </button>
   </div>
 </header>
 
 <main class="max-w-6xl mx-auto px-6 py-12">
+
+<!-- PANEL DE LOGIN ADMIN: se muestra SOLO si NO eres admin -->
+<div id="admin-login-panel" class="max-w-md mx-auto bg-slate-900 p-6 rounded-xl border border-yellow-500/20 mb-6">
+  <h3 class="text-yellow-500 font-bungee text-xl mb-4">Inicia sesión</h3>
+  <input id="admin-email" placeholder="Email" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
+  <input id="admin-password" type="password" placeholder="Contraseña" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
+  <button id="admin-login-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-bold">Entrar como admin</button>
+</div>
 
 <div id="group-selector" class="mb-6 hidden text-center">
   <label class="mr-2 font-bold">Grupo:</label>
@@ -46,7 +107,18 @@
 </section>
 
 <section class="mb-16">
-  <h2 id="current-day-title" class="text-3xl font-bold mb-6"></h2>
+  <div class="relative inline-block mb-6 group">
+    <button id="current-day-title" onclick="toggleMenu()" class="font-bold flex items-center gap-3 hover:text-yellow-400 transition-colors">
+      <span>Cargando...</span>
+      <i class="fas fa-chevron-down text-lg text-yellow-500"></i>
+    </button>
+
+    <div id="dropdown-menu" class="hidden absolute left-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+      <div id="dropdown-list" class="flex flex-col">
+        </div>
+    </div>
+  </div>
+
   <div id="movies-grid" class="flex flex-col gap-6 md:grid md:grid-cols-3"></div>
 </section>
 
@@ -72,14 +144,6 @@
     </div>
   </div>
 </section>
-
-<!-- PANEL DE LOGIN ADMIN: se muestra SOLO si NO eres admin -->
-<div id="admin-login-panel" class="max-w-md mx-auto bg-slate-900 p-6 rounded-xl border border-yellow-500/20 mb-6">
-  <h3 class="text-yellow-500 font-bungee text-xl mb-4">Inicia sesión</h3>
-  <input id="admin-email" placeholder="Email" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
-  <input id="admin-password" type="password" placeholder="Contraseña" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
-  <button id="admin-login-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-bold">Entrar como admin</button>
-</div>
 
 <footer class="text-center py-8 text-slate-500 text-sm">
   <p>© 2025 Cine de Verano</p>
@@ -192,16 +256,23 @@ init();
 onAuthStateChanged(auth, async (user) => {
   const loginPanel = document.getElementById("admin-login-panel");
   const controlPanel = document.getElementById("control-panel");
+  
+  // Elementos del Header
+  const mainHeader = document.getElementById("main-header");
+  const heroContent = document.getElementById("hero-content");
+  const navbarContent = document.getElementById("navbar-content");
 
   if (!user) {
     uid = null;
     isAdminFlag = false;
-    userGroups = [];
-    selectedGroup = null;
     
-    // MOSTRAR login y OCULTAR control
+    // MOSTRAR Modo Invitado (Hero gigante)
     loginPanel.classList.remove("hidden");
     controlPanel.classList.add("hidden");
+    
+    mainHeader.classList.remove("is-logged-in");
+    heroContent.classList.remove("hidden");
+    navbarContent.classList.add("hidden");
     return;
   }
 
@@ -213,81 +284,121 @@ onAuthStateChanged(auth, async (user) => {
     selectedGroup = userGroups[0];
     docRef = doc(db, "cine-verano", selectedGroup);
     
-    // OCULTAR login y MOSTRAR control
+    // MOSTRAR Modo Admin (Navbar discreto)
     loginPanel.classList.add("hidden");
     controlPanel.classList.remove("hidden");
+    
+    mainHeader.classList.add("is-logged-in");
+    heroContent.classList.add("hidden");
+    navbarContent.classList.remove("hidden");
     
     init();
     renderGroupSelector();
   } else {
-    // Si está logueado pero no es admin de ningún grupo
-    alert("Usuario autenticado pero no tienes permisos de administrador.");
+    alert("Usuario sin permisos.");
     await signOut(auth);
   }
 });
 
 /* ========== RENDER ========= */
 function render() {
-  const nav = document.getElementById("days-nav");
-  const sel = document.getElementById("movie-day-select");
-  nav.innerHTML = sel.innerHTML = "";
-
-  schedule.forEach((d, i) => {
-    nav.innerHTML += `<button onclick="changeDay(${i})" class="day-tab px-4 py-2 rounded-full border ${i===currentDay?'active':'border-slate-600'}">${d.label}</button>`;
-    sel.innerHTML += `<option value="${i}">${d.label}</option>`;
-  });
-
+  const titleContainer = document.getElementById("current-day-title").querySelector('span');
+  const dropdownList = document.getElementById("dropdown-list");
+  
   const day = schedule[currentDay];
-  document.getElementById("current-day-title").innerText = day.label;
-  const grid = document.getElementById("movies-grid");
-  grid.innerHTML = "";
+  titleContainer.innerText = day ? day.label : "Seleccionar";
 
-  day.movies.forEach((m, idx) => {
-    const votes = m.votes ? Object.keys(m.votes).length : 0;
-    // solo admins pueden votar → solo se marca como "voted" para admins
-    const voted = isAdminFlag && uid && m.votes && m.votes[uid];
-
-    grid.innerHTML += `
-      <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch">
-        <img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">
-        <div class="p-4 flex-1 w-full">
-          <div class="flex items-start justify-between gap-4">
-            <span class="bg-yellow-500 text-black px-3 py-1 rounded text-xs font-black">${m.time}</span>
-          </div>
-          <h3 class="text-xl font-bold mt-2">${m.title}</h3>
-          ${m.rating ? `<div class="text-yellow-400 font-bold mt-1 flex items-center gap-1"><i class="fas fa-star"></i> IMDb ${m.rating}/10</div>` : ""}
-          <button onclick="toggleVote(${currentDay},${idx})" class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded ${voted ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}" ${!isAdminFlag ? 'disabled' : ''}>
-            <i class="fas fa-thumbs-up"></i><span>${votes}</span>
-          </button>
-        </div>
-      </div>`;
-  });
-}
-
-function renderGroupSelector() {
-  const box = document.getElementById("group-selector");
-  const sel = document.getElementById("group-select");
-
-  if (userGroups.length <= 1) {
-    box.classList.add("hidden");
-    return;
+  // 1. Generar Menú Desplegable
+  dropdownList.innerHTML = "";
+  if (userGroups && userGroups.length > 1) {
+    dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Cambiar Grupo</div>`;
+    userGroups.forEach(g => {
+      dropdownList.innerHTML += `
+        <button onclick="changeGroup('${g}')" class="px-4 py-2 text-left hover:bg-slate-700 text-sm ${g === selectedGroup ? 'text-yellow-500' : 'text-slate-300'}">
+          <i class="fas fa-users mr-2 opacity-50"></i>${g}
+        </button>
+      `;
+    });
+    dropdownList.innerHTML += `<div class="border-t border-slate-700 my-1"></div>`;
   }
 
-  box.classList.remove("hidden");
-  sel.innerHTML = "";
-
-  userGroups.forEach(g => {
-    sel.innerHTML += `<option value="${g}">${g}</option>`;
+  dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Días / Cartelera</div>`;
+  schedule.forEach((d, i) => {
+    dropdownList.innerHTML += `
+      <button onclick="changeDay(${i})" class="px-4 py-3 text-left hover:bg-slate-800 border-b border-slate-800 last:border-0 ${i === currentDay ? 'text-yellow-500 font-bold' : 'text-white'}">
+        <i class="fas fa-calendar-day mr-2 opacity-50"></i>${d.label}
+      </button>
+    `;
   });
 
-  sel.value = selectedGroup;
+  // 2. Renderizar las películas
+  const grid = document.getElementById("movies-grid");
+  grid.innerHTML = "";
+  
+  if (day && day.movies) {
+    day.movies.forEach((m, idx) => {
+      // Cálculo de variables ANTES de usarlas
+      const votes = m.votes ? Object.keys(m.votes).length : 0;
+      const voted = isAdminFlag && uid && m.votes && m.votes[uid];
+      
+      // Lógica de detección de texto vs hora
+      const isTime = /^[\d:.]+$/.test(m.time); 
+      const extraClass = isTime ? '' : 'text-custom';
 
-  sel.onchange = () => {
-    selectedGroup = sel.value;
-    docRef = doc(db, "cine-verano", selectedGroup);
-    init();
-  };
+      grid.innerHTML += `
+        <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch shadow-xl transition-transform hover:scale-[1.01]">
+          <img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">
+          
+          <div class="p-4 flex-1 w-full">
+            <div class="flex items-start justify-between">
+              <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">
+                ${m.time}
+              </span>
+            </div>
+            
+            <h3 class="text-xl font-bold mt-2 leading-tight">${m.title}</h3>
+            
+            ${m.rating ? `
+              <div class="text-yellow-400 font-bold mt-1 flex items-center gap-1">
+                <i class="fas fa-star text-sm"></i> IMDb ${m.rating}/10
+              </div>
+            ` : ""}
+            
+            <button onclick="toggleVote(${currentDay},${idx})" class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${voted ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}" ${!isAdminFlag ? 'disabled' : ''}>
+              <i class="fas fa-thumbs-up"></i>
+              <span>${votes}</span>
+            </button>
+          </div>
+        </div>`;
+    });
+  }
 }
+
+// NUEVAS FUNCIONES DE CONTROL
+window.toggleMenu = () => {
+  const menu = document.getElementById("dropdown-menu");
+  menu.classList.toggle("hidden");
+};
+
+window.changeDay = (i) => {
+  currentDay = i;
+  document.getElementById("dropdown-menu").classList.add("hidden");
+  render();
+};
+
+window.changeGroup = (groupName) => {
+  selectedGroup = groupName;
+  docRef = doc(db, "cine-verano", selectedGroup);
+  document.getElementById("dropdown-menu").classList.add("hidden");
+  init(); // Reinicia el listener de Firebase para el nuevo grupo
+};
+
+// Cerrar menú si se hace clic fuera
+window.addEventListener('click', (e) => {
+  if (!document.getElementById('current-day-title').contains(e.target)) {
+    document.getElementById('dropdown-menu').classList.add('hidden');
+  }
+});
 
 window.changeDay = i => { currentDay = i; render(); };
 
