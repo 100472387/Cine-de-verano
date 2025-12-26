@@ -61,13 +61,13 @@
 
   <div class="grid md:grid-cols-2 gap-8">
     <div>
-      <input id="new-day-label" placeholder="Ej: Día 3 - Domingo" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-3">
-      <button id="add-day-btn" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded font-bold">Añadir día</button>
+      <input id="new-category-label" placeholder="Ej: Día 20, Recomendaciones, ..." class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-3">
+      <button id="add-category-btn" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded font-bold">Añadir categoría</button>
     </div>
     <div>
       <select id="movie-day-select" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2"></select>
       <input id="new-movie-title" placeholder="Título" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
-      <input id="new-movie-time" placeholder="Hora (22:00)" class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
+      <input id="new-movie-details" placeholder="Ej: 22:00, Temporada 1, ..." class="w-full p-2 rounded bg-slate-800 border border-slate-600 mb-2">
       <button id="add-movie-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded font-black">Añadir película</button>
     </div>
   </div>
@@ -303,12 +303,12 @@ window.toggleVote = async (d,m) => {
 };
 
 /* ========== ADD DAY / MOVIE: SOLO ADMINS ========= */
-document.getElementById("add-day-btn").onclick = async () => {
-  if (!isAdminFlag) { alert("Solo los administradores pueden añadir días."); return; }
-  const label = document.getElementById("new-day-label").value;
+document.getElementById("add-category-btn").onclick = async () => {
+  if (!isAdminFlag) { alert("Solo los administradores pueden añadir categorías."); return; }
+  const label = document.getElementById("new-category-label").value;
   if (!label) return;
   schedule.push({ label, movies: [] });
-  document.getElementById("new-day-label").value = "";
+  document.getElementById("new-category-label").value = "";
   await setDoc(docRef, { list: schedule });
 };
 
@@ -316,12 +316,12 @@ document.getElementById("add-movie-btn").onclick = async () => {
   if (!isAdminFlag) { alert("Solo los administradores pueden añadir películas."); return; }
   const d = document.getElementById("movie-day-select").value;
   const t = document.getElementById("new-movie-title").value;
-  const h = document.getElementById("new-movie-time").value;
+  const h = document.getElementById("new-movie-details").value;
   if (!t || !h) return;
   const data = await fetchMovieData(t);
   schedule[d].movies.push({ title: t, time: h, img: data.img, rating: data.rating, votes: {} });
   document.getElementById("new-movie-title").value = "";
-  document.getElementById("new-movie-time").value = "";
+  document.getElementById("new-movie-details").value = "";
   await setDoc(docRef, { list: schedule });
 };
 </script>
