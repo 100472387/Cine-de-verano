@@ -309,63 +309,104 @@ window.toggleVote = async (d, m) => {
 
 /* RENDER */
 function render() {
-  const titleContainer = document.getElementById("current-day-title").querySelector('span');
+  const titleContainer = document
+    .getElementById("current-day-title")
+    .querySelector("span");
+
   const dropdownList = document.getElementById("dropdown-list");
-  const daySelect = document.getElementById("movie-day-select"); 
-  
+  const daySelect = document.getElementById("movie-day-select");
+  const grid = document.getElementById("movies-grid");
+
   const day = schedule[currentDay];
   titleContainer.innerText = day ? day.label : (selectedGroup || "");
 
-  // 1. Menú Desplegable y Selector de días del panel
+  /* ================= MENÚ DESPLEGABLE ================= */
   dropdownList.innerHTML = "";
-  daySelect.innerHTML = ""; 
-  
+  daySelect.innerHTML = "";
+
   if (userGroups.length > 1) {
-    dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Cambiar Grupo</div>`;
+    dropdownList.innerHTML += `
+      <div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">
+        Cambiar Grupo
+      </div>`;
     userGroups.forEach(g => {
       dropdownList.innerHTML += `
-        <button onclick="changeGroup('${g}')" class="px-4 py-2 text-left hover:bg-slate-700 text-sm ${g === selectedGroup ? 'text-yellow-500' : 'text-slate-300'}">
+        <button onclick="changeGroup('${g}')"
+          class="px-4 py-2 text-left hover:bg-slate-700 text-sm
+          ${g === selectedGroup ? "text-yellow-500" : "text-slate-300"}">
           <i class="fas fa-users mr-2 opacity-50"></i>${g}
         </button>`;
     });
     dropdownList.innerHTML += `<div class="border-t border-slate-700 my-1"></div>`;
   }
-  
-  dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Días / Cartelera</div>`;
+
+  dropdownList.innerHTML += `
+    <div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">
+      Días / Cartelera
+    </div>`;
+
   schedule.forEach((d, i) => {
     dropdownList.innerHTML += `
-      <button onclick="changeDay(${i})" class="px-4 py-3 text-left hover:bg-slate-800 border-b border-slate-800 last:border-0 ${i === currentDay ? 'text-yellow-400 font-bold' : 'text-white'}">
+      <button onclick="changeDay(${i})"
+        class="px-4 py-3 text-left hover:bg-slate-800 border-b border-slate-800 last:border-0
+        ${i === currentDay ? "text-yellow-400 font-bold" : "text-white"}">
         <i class="fas fa-calendar-day mr-2 opacity-50"></i>${d.label}
       </button>`;
-    
     daySelect.innerHTML += `<option value="${i}">${d.label}</option>`;
   });
 
-  // 2. Grid de Películas
-  const grid = document.getElementById("movies-grid");
+  /* ================= GRID DE PELÍCULAS ================= */
   grid.innerHTML = "";
-  
-  if (day && day.movies) {
-    day.movies.forEach((m, idx) => {
-      const votes = m.votes ? Object.keys(m.votes).length : 0;
-      const voted = uid && m.votes && m.votes[uid];
-      const isTime = /^[\d:.]+$/.test(m.time); 
-      const extraClass = isTime ? '' : 'text-custom';
 
-      grid.innerHTML += `
-        <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch shadow-xl transition-transform hover:scale-[1.01]">
-          <img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">
-          <div class="p-4 flex-1 w-full">
-            <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">${m.time}</span>
-            <h3 class="text-xl font-bold mt-2 leading-tight">${m.title}</h3>
-            ${m.rating ? `<div class="text-yellow-400 font-bold mt-1 flex items-center gap-1 text-sm"><i class="fas fa-star"></i> IMDb ${m.rating}/10</div>` : ""}
-            <button onclick="toggleVote(${currentDay},${idx})" class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${voted ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}">
-              <i class="fas fa-thumbs-up"></i><span>${votes}</span>
-            </button>
-          </div>
-        </div>`;
-    });
-  }
+  if (!day || !day.movies) return;
+
+  // ORDENAR POR NÚMERO DE VOTOS (DESC)
+  const sortedMovies = [...day.movies].sort((a, b) => {
+    const votesA = a.votes ? Object.keys(a.votes).length : 0;
+    const votesB = b.votes ? Object.keys(b.votes).length : 0;
+    return votesB - votesA;
+  });
+
+  sortedMovies.forEach(m => {
+    const realIndex = day.movies.indexOf(m);
+    const votes = m.votes ? Object.keys(m.votes).length : 0;
+    const voted = uid && m.votes && m.votes[uid];
+    const isTime = /^[\d:.]+$/.test(m.time);
+    const extraClass = isTime ? "" : "text-custom";
+
+    grid.innerHTML += `
+      <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700
+        flex flex-row md:flex-col items-center md:items-stretch shadow-xl
+        transition-transform hover:scale-[1.01]">
+
+        <img src="${m.img}"
+          class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg
+          md:m-0 md:rounded-none md:w-full md:aspect-[2/3]
+          object-cover bg-black">
+
+        <div class="p-4 flex-1 w-full">
+          <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">
+            ${m.time}
+          </span>
+
+          <h3 class="text-xl font-bold mt-2 leading-tight">${m.title}</h3>
+
+          ${m.rating ? `
+            <div class="text-yellow-400 font-bold mt-1 flex items-center gap-1 text-sm">
+              <i class="fas fa-star"></i> IMDb ${m.rating}/10
+            </div>` : ""}
+
+          <button onclick="toggleVote(${currentDay},${realIndex})"
+            class="mt-4 w-full flex items-center justify-center gap-2
+            px-3 py-2 rounded-lg font-bold transition-all
+            ${voted ? "bg-green-600" : "bg-slate-700 hover:bg-slate-600"}">
+
+            <i class="fas fa-thumbs-up"></i>
+            <span>${votes}</span>
+          </button>
+        </div>
+      </div>`;
+  });
 }
 
 // FUNCIONES DE CONTROL
