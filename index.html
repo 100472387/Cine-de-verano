@@ -178,14 +178,11 @@ async function getUserGroups(uid) {
 
 async function isAdminByGroup(uid) {
   if (!uid) return false;
-
   const groupsSnap = await getDocs(collection(db, "groups"));
-
   for (const groupDoc of groupsSnap.docs) {
     const members = groupDoc.data().members || [];
     if (members.includes(uid)) return true;
   }
-
   return false;
 }
 
@@ -194,8 +191,7 @@ document.getElementById("admin-login-btn").onclick = async () => {
   const email = document.getElementById("admin-email").value;
   const password = document.getElementById("admin-password").value;
   try {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    // onAuthStateChanged gestionará la UI al autenticarse
+    await signInWithEmailAndPassword(auth, email, password);
   } catch (err) {
     console.error(err);
     alert("Credenciales incorrectas o usuario no admin.");
@@ -228,8 +224,6 @@ async function fetchMovieData(title) {
 /* ========== INIT: escucha schedule ========= */
 function init() {
   if (!docRef) return;
-
-  // cerrar listener anterior
   if (unsubscribeSchedule) unsubscribeSchedule();
   unsubscribeSchedule = onSnapshot(docRef, snap => {
     schedule = snap.exists()
@@ -238,8 +232,6 @@ function init() {
     render();
   });
 }
-
-init();
 
 /* ========== AUTH STATE CHANGES ========= */
 onAuthStateChanged(auth, async (user) => {
@@ -254,12 +246,9 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) {
     uid = null;
     isAdminFlag = false;
-    
-    // MODO LOGIN: Solo se ve el panel de login y el Hero gigante
     loginPanel.classList.remove("hidden");
     mainContent.classList.add("hidden"); 
     controlPanel.classList.add("hidden");
-    
     mainHeader.classList.remove("is-logged-in");
     heroContent.classList.remove("hidden");
     navbarContent.classList.add("hidden");
@@ -273,16 +262,12 @@ onAuthStateChanged(auth, async (user) => {
   if (isAdminFlag) {
     selectedGroup = userGroups[0];
     docRef = doc(db, "cine-verano", selectedGroup);
-    
-    // MODO APP: Se oculta login y se muestra la cartelera
     loginPanel.classList.add("hidden");
     mainContent.classList.remove("hidden"); 
     controlPanel.classList.remove("hidden");
-    
     mainHeader.classList.add("is-logged-in");
     heroContent.classList.add("hidden");
     navbarContent.classList.remove("hidden");
-    
     init();
   } else {
     alert("Usuario sin permisos.");
@@ -290,29 +275,25 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-/* ========== RENDER ========= */
-/* VOTOS */
-window.toggleVote = async (d, m) => {
-  if (!isAdminFlag || !uid || !docRef) return;
-  
-  const movie = schedule[d].movies[m];
-  if (!movie.votes) movie.votes = {};
-  
-  if (movie.votes[uid]) {
-    delete movie.votes[uid];
-  } else {
-    movie.votes[uid] = true;
-  }
-  
+/* ========== BORRADO ========== */
+window.deleteCategory = async (index, e) => {
+  e.stopPropagation();
+  if (!confirm("¿Eliminar esta categoría y todas sus películas?")) return;
+  schedule.splice(index, 1);
+  if (currentDay >= schedule.length) currentDay = Math.max(0, schedule.length - 1);
   await setDoc(docRef, { list: schedule });
 };
 
-/* RENDER */
-function render() {
-  const titleContainer = document
-    .getElementById("current-day-title")
-    .querySelector("span");
+window.deleteMovie = async (movieIndex, e) => {
+  e.stopPropagation();
+  if (!confirm("¿Eliminar esta película?")) return;
+  schedule[currentDay].movies.splice(movieIndex, 1);
+  await setDoc(docRef, { list: schedule });
+};
 
+/* ========== RENDER ========= */
+function render() {
+  const titleContainer = document.getElementById("current-day-title").querySelector("span");
   const dropdownList = document.getElementById("dropdown-list");
   const daySelect = document.getElementById("movie-day-select");
   const grid = document.getElementById("movies-grid");
@@ -320,47 +301,36 @@ function render() {
   const day = schedule[currentDay];
   titleContainer.innerText = day ? day.label : (selectedGroup || "");
 
-  /* ================= MENÚ DESPLEGABLE ================= */
   dropdownList.innerHTML = "";
   daySelect.innerHTML = "";
 
   if (userGroups.length > 1) {
-    dropdownList.innerHTML += `
-      <div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">
-        Cambiar Grupo
-      </div>`;
+    dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Cambiar Grupo</div>`;
     userGroups.forEach(g => {
       dropdownList.innerHTML += `
-        <button onclick="changeGroup('${g}')"
-          class="px-4 py-2 text-left hover:bg-slate-700 text-sm
-          ${g === selectedGroup ? "text-yellow-500" : "text-slate-300"}">
+        <button onclick="changeGroup('${g}')" class="px-4 py-2 text-left hover:bg-slate-700 text-sm ${g === selectedGroup ? "text-yellow-500" : "text-slate-300"}">
           <i class="fas fa-users mr-2 opacity-50"></i>${g}
         </button>`;
     });
     dropdownList.innerHTML += `<div class="border-t border-slate-700 my-1"></div>`;
   }
 
-  dropdownList.innerHTML += `
-    <div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">
-      Días / Cartelera
-    </div>`;
+  dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Días / Cartelera</div>`;
 
   schedule.forEach((d, i) => {
     dropdownList.innerHTML += `
-      <button onclick="changeDay(${i})"
-        class="px-4 py-3 text-left hover:bg-slate-800 border-b border-slate-800 last:border-0
-        ${i === currentDay ? "text-yellow-400 font-bold" : "text-white"}">
-        <i class="fas fa-calendar-day mr-2 opacity-50"></i>${d.label}
-      </button>`;
+      <div class="flex items-center hover:bg-slate-800 border-b border-slate-800 last:border-0">
+        <button onclick="changeDay(${i})" class="flex-1 px-4 py-3 text-left ${i === currentDay ? "text-yellow-400 font-bold" : "text-white"}">
+          <i class="fas fa-calendar-day mr-2 opacity-50"></i>${d.label}
+        </button>
+        ${isAdminFlag ? `<button onclick="deleteCategory(${i}, event)" class="px-4 text-slate-500 hover:text-red-500"><i class="fas fa-times"></i></button>` : ''}
+      </div>`;
     daySelect.innerHTML += `<option value="${i}">${d.label}</option>`;
   });
 
-  /* ================= GRID DE PELÍCULAS ================= */
   grid.innerHTML = "";
-
   if (!day || !day.movies) return;
 
-  // ORDENAR POR NÚMERO DE VOTOS (DESC)
   const sortedMovies = [...day.movies].sort((a, b) => {
     const votesA = a.votes ? Object.keys(a.votes).length : 0;
     const votesB = b.votes ? Object.keys(b.votes).length : 0;
@@ -375,32 +345,14 @@ function render() {
     const extraClass = isTime ? "" : "text-custom";
 
     grid.innerHTML += `
-      <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700
-        flex flex-row md:flex-col items-center md:items-stretch shadow-xl
-        transition-transform hover:scale-[1.01]">
-
-        <img src="${m.img}"
-          class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg
-          md:m-0 md:rounded-none md:w-full md:aspect-[2/3]
-          object-cover bg-black">
-
+      <div class="relative bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch shadow-xl transition-transform hover:scale-[1.01]">
+        ${isAdminFlag ? `<button onclick="deleteMovie(${realIndex}, event)" class="absolute top-2 right-2 z-20 text-slate-500 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>` : ''}
+        <img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">
         <div class="p-4 flex-1 w-full">
-          <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">
-            ${m.time}
-          </span>
-
+          <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">${m.time}</span>
           <h3 class="text-xl font-bold mt-2 leading-tight">${m.title}</h3>
-
-          ${m.rating ? `
-            <div class="text-yellow-400 font-bold mt-1 flex items-center gap-1 text-sm">
-              <i class="fas fa-star"></i> IMDb ${m.rating}/10
-            </div>` : ""}
-
-          <button onclick="toggleVote(${currentDay},${realIndex})"
-            class="mt-4 w-full flex items-center justify-center gap-2
-            px-3 py-2 rounded-lg font-bold transition-all
-            ${voted ? "bg-green-600" : "bg-slate-700 hover:bg-slate-600"}">
-
+          ${m.rating ? `<div class="text-yellow-400 font-bold mt-1 flex items-center gap-1 text-sm"><i class="fas fa-star"></i> IMDb ${m.rating}/10</div>` : ""}
+          <button onclick="toggleVote(${currentDay},${realIndex})" class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${voted ? "bg-green-600" : "bg-slate-700 hover:bg-slate-600"}">
             <i class="fas fa-thumbs-up"></i>
             <span>${votes}</span>
           </button>
@@ -409,35 +361,16 @@ function render() {
   });
 }
 
-// FUNCIONES DE CONTROL
-window.toggleMenu = () => {
-  const menu = document.getElementById("dropdown-menu");
-  menu.classList.toggle("hidden");
-};
+window.toggleMenu = () => { document.getElementById("dropdown-menu").classList.toggle("hidden"); };
+window.changeDay = (i) => { currentDay = i; document.getElementById("dropdown-menu").classList.add("hidden"); render(); };
+window.changeGroup = (groupName) => { selectedGroup = groupName; docRef = doc(db, "cine-verano", selectedGroup); document.getElementById("dropdown-menu").classList.add("hidden"); init(); };
 
-window.changeDay = (i) => {
-  currentDay = i;
-  document.getElementById("dropdown-menu").classList.add("hidden");
-  render();
-};
-
-window.changeGroup = (groupName) => {
-  selectedGroup = groupName;
-  docRef = doc(db, "cine-verano", selectedGroup);
-  document.getElementById("dropdown-menu").classList.add("hidden");
-  init(); // Reinicia el listener de Firebase para el nuevo grupo
-};
-
-// Cerrar menú si se hace clic fuera
 window.addEventListener('click', (e) => {
   if (!document.getElementById('current-day-title').contains(e.target)) {
     document.getElementById('dropdown-menu').classList.add('hidden');
   }
 });
 
-window.changeDay = i => { currentDay = i; render(); };
-
-/* ========== VOTOS: SOLO ADMINS PUEDEN VOTAR ========== */
 window.toggleVote = async (d,m) => {
   if (!isAdminFlag || !uid) { alert("Solo los administradores pueden votar."); return; }
   const movie = schedule[d].movies[m];
@@ -445,12 +378,10 @@ window.toggleVote = async (d,m) => {
   if (movie.votes[uid]) delete movie.votes[uid];
   else movie.votes[uid] = true;
   await setDoc(docRef, { list: schedule });
-  render();
 };
 
-/* ========== ADD DAY / MOVIE: SOLO ADMINS ========= */
 document.getElementById("add-category-btn").onclick = async () => {
-  if (!isAdminFlag) { alert("Solo los administradores pueden añadir categorías."); return; }
+  if (!isAdminFlag) return;
   const label = document.getElementById("new-category-label").value;
   if (!label) return;
   schedule.push({ label, movies: [] });
@@ -459,7 +390,7 @@ document.getElementById("add-category-btn").onclick = async () => {
 };
 
 document.getElementById("add-movie-btn").onclick = async () => {
-  if (!isAdminFlag) { alert("Solo los administradores pueden añadir películas."); return; }
+  if (!isAdminFlag) return;
   const d = document.getElementById("movie-day-select").value;
   const t = document.getElementById("new-movie-title").value;
   const h = document.getElementById("new-movie-details").value;
@@ -471,6 +402,5 @@ document.getElementById("add-movie-btn").onclick = async () => {
   await setDoc(docRef, { list: schedule });
 };
 </script>
-
 </body>
 </html>
