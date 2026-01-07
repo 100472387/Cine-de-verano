@@ -331,10 +331,18 @@ function render() {
   grid.innerHTML = "";
   if (!day || !day.movies) return;
 
+  // ORDENAR POR VOTOS Y LUEGO POR NOTA
   const sortedMovies = [...day.movies].sort((a, b) => {
     const votesA = a.votes ? Object.keys(a.votes).length : 0;
     const votesB = b.votes ? Object.keys(b.votes).length : 0;
-    return votesB - votesA;
+
+    if (votesA !== votesB) {
+      return votesB - votesA;
+    } else {
+      const ratingA = a.rating ? parseFloat(a.rating) : 0;
+      const ratingB = b.rating ? parseFloat(b.rating) : 0;
+      return ratingB - ratingA;
+    }
   });
 
   sortedMovies.forEach(m => {
@@ -343,15 +351,27 @@ function render() {
     const voted = uid && m.votes && m.votes[uid];
     const isTime = /^[\d:.]+$/.test(m.time);
     const extraClass = isTime ? "" : "text-custom";
+    
+    // URL de búsqueda en IMDb basada en el título
+    const imdbSearchUrl = `https://www.imdb.com/find?q=${encodeURIComponent(m.title)}`;
 
     grid.innerHTML += `
       <div class="relative bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch shadow-xl transition-transform hover:scale-[1.01]">
         ${isAdminFlag ? `<button onclick="deleteMovie(${realIndex}, event)" class="absolute top-2 right-2 z-20 text-slate-500 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>` : ''}
+        
         <img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">
+        
         <div class="p-4 flex-1 w-full">
           <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">${m.time}</span>
-          <h3 class="text-xl font-bold mt-2 leading-tight">${m.title}</h3>
+          
+          <h3 class="text-xl font-bold mt-2 leading-tight">
+            <a href="${imdbSearchUrl}" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors">
+              ${m.title}
+            </a>
+          </h3>
+
           ${m.rating ? `<div class="text-yellow-400 font-bold mt-1 flex items-center gap-1 text-sm"><i class="fas fa-star"></i> IMDb ${m.rating}/10</div>` : ""}
+          
           <button onclick="toggleVote(${currentDay},${realIndex})" class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${voted ? "bg-green-600" : "bg-slate-700 hover:bg-slate-600"}">
             <i class="fas fa-thumbs-up"></i>
             <span>${votes}</span>
