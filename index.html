@@ -62,6 +62,44 @@
       overflow: visible;
       white-space: normal;
   }
+
+  /* --- ARREGLO ALEATORIZADOR (MODAL) --- */
+  .randomizer-modal {
+    position: fixed; inset: 0; z-index: 100; display: none;
+    background: rgba(2, 6, 23, 0.95); backdrop-filter: blur(8px);
+  }
+  .randomizer-modal.show { display: flex; flex-direction: column; }
+
+  .randomizer-card {
+    display: flex; flex-direction: column;
+    width: 100%; max-width: 800px; height: 100%;
+    margin: auto; background: #0f172a; overflow: hidden;
+  }
+
+  .modal-header { padding: 1rem; border-b: 1px solid rgba(234,179,8,0.2); flex-shrink: 0; }
+  .modal-footer { padding: 1rem; border-t: 1px solid rgba(234,179,8,0.2); background: #1e293b; flex-shrink: 0; }
+  .modal-body { flex: 1; overflow-y: auto; padding: 1rem; }
+
+  .randomizer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+  }
+
+  @media (min-width: 640px) {
+    .randomizer-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+    .randomizer-card { height: 90vh; border-radius: 1rem; border: 1px solid rgba(234,179,8,0.3); }
+  }
+
+  .randomizer-item {
+    aspect-ratio: 2/3; border-radius: 6px; overflow: hidden;
+    border: 2px solid transparent; transition: all 0.2s; position: relative;
+  }
+  .randomizer-item img { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
+  .randomizer-item.highlight { border-color: #eab308; transform: scale(1.05); z-index: 10; }
+  .randomizer-item.highlight img { opacity: 1; }
+  .randomizer-item.winner { border-color: #22c55e; box-shadow: 0 0 20px rgba(34,197,94,.5); transform: scale(1.1); }
+  .randomizer-item.winner img { opacity: 1; }
 </style>
 </head>
 
@@ -97,8 +135,8 @@
 
   <div id="main-content" class="hidden">
     
-    <section class="mb-16">
-      <div class="relative inline-block mb-8">
+    <div class="relative flex items-center gap-4 mb-8">
+      <div class="relative">
         <button id="current-day-title" onclick="toggleMenu()" class="text-4xl font-bold flex items-center gap-3 hover:text-yellow-400 transition-colors">
           <span></span>
           <i class="fas fa-chevron-down text-xl text-yellow-500"></i>
@@ -108,6 +146,11 @@
           <div id="dropdown-list" class="flex flex-col"></div>
         </div>
       </div>
+      
+      <button id="mobile-randomizer-btn" class="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded-lg font-bold shadow-lg transition-transform active:scale-95" aria-label="Aleatorizar">
+        <i class="fas fa-dice"></i>
+      </button>
+    </div>
 
       <div id="movies-grid" class="flex flex-col gap-6 md:grid md:grid-cols-3"></div>
     </section>
@@ -140,6 +183,46 @@
   <p>© 2025 Cine de Verano</p>
   <p id="user-id-display" class="mt-2 text-[10px] opacity-50 font-mono uppercase tracking-widest"></p>
 </footer>
+
+<div id="randomizer-modal" class="randomizer-modal">
+  <div class="randomizer-card">
+    <div class="modal-header flex justify-between items-center">
+      <div>
+        <h3 class="text-yellow-500 font-bungee text-3xl md:text-4xl leading-tight">
+          Aleatorizador
+        </h3>
+        <p class="text-[10px] text-slate-400 uppercase tracking-wider">
+          Categoría actual
+        </p>
+      </div>
+      <button id="close-randomizer"
+        class="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 transition-colors rounded-full text-slate-400">
+        <i class="fas fa-times text-xl"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div id="randomizer-grid" class="randomizer-grid"></div>
+    </div>
+
+    <div class="modal-footer">
+      <div id="randomizer-result-box" class="text-center mb-4 hidden">
+        <p class="text-xs text-yellow-500 uppercase font-bold">Ganadora:</p>
+        <h4 id="randomizer-result" class="text-xl font-bold text-white">---</h4>
+      </div>
+      <div class="flex gap-3">
+        <button id="run-randomizer"
+          class="flex-1 bg-yellow-500 text-black py-3 rounded-xl font-black">
+          ¡ELEGIR PELÍCULA!
+        </button>
+        <button id="reset-randomizer"
+          class="px-4 bg-slate-700 rounded-xl text-white">
+          <i class="fas fa-redo-alt"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script type="module">
 /* ========== IMPORTS FIREBASE ========== */
@@ -234,7 +317,7 @@ function init() {
 }
 
 /* ========== AUTH STATE CHANGES ========= */
-onAuthStateChanged(auth, async (user) => {
+const onAuthStateChangedHandler = async (user) => {
   const loginPanel = document.getElementById("admin-login-panel");
   const controlPanel = document.getElementById("control-panel");
   const mainContent = document.getElementById("main-content"); 
@@ -273,7 +356,9 @@ onAuthStateChanged(auth, async (user) => {
     alert("Usuario sin permisos.");
     await signOut(auth);
   }
-});
+};
+
+onAuthStateChanged(auth, onAuthStateChangedHandler);
 
 /* ========== BORRADO ========== */
 window.deleteCategory = async (index, e) => {
@@ -421,6 +506,81 @@ document.getElementById("add-movie-btn").onclick = async () => {
   document.getElementById("new-movie-details").value = "";
   await setDoc(docRef, { list: schedule });
 };
+
+/* ========== ALEATORIZADOR ========== */
+const modal = document.getElementById('randomizer-modal');
+const randGrid = document.getElementById('randomizer-grid');
+let isRunning = false;
+
+function openRandomizer() {
+  const day = schedule[currentDay];
+  if (!day || day.movies.length < 2) {
+    alert("Añade al menos 2 películas");
+    return;
+  }
+
+  randGrid.innerHTML = "";
+  day.movies.forEach((m, i) => {
+    randGrid.innerHTML += `
+      <div class="randomizer-item" data-index="${i}">
+        <img src="${m.img}">
+      </div>`;
+  });
+
+  document.getElementById('randomizer-result-box').classList.add('hidden');
+  modal.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeRandomizer() {
+  modal.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('close-randomizer').onclick = closeRandomizer;
+document.getElementById('mobile-randomizer-btn').onclick = (e) => {
+  e.stopPropagation();
+  openRandomizer();
+};
+
+document.getElementById('run-randomizer').onclick = () => {
+  if (isRunning) return;
+  isRunning = true;
+
+  const items = document.querySelectorAll('.randomizer-item');
+  const totalSteps = 40 + Math.floor(Math.random() * 20);
+  let currentStep = 0;
+  let speed = 50;
+
+  function spin() {
+    items.forEach(el => el.classList.remove('highlight'));
+    const idx = currentStep % items.length;
+    items[idx].classList.add('highlight');
+
+    if (currentStep < totalSteps) {
+      currentStep++;
+      if (currentStep > totalSteps * 0.7) speed += 15;
+      setTimeout(spin, speed);
+    } else {
+      items[idx].classList.add('winner');
+      document.getElementById('randomizer-result').innerText =
+        schedule[currentDay].movies[idx].title;
+      document.getElementById('randomizer-result-box').classList.remove('hidden');
+      isRunning = false;
+    }
+  }
+
+  items.forEach(el => el.classList.remove('winner', 'highlight'));
+  document.getElementById('randomizer-result-box').classList.add('hidden');
+  spin();
+};
+
+document.getElementById('reset-randomizer').onclick = () => {
+  document.querySelectorAll('.randomizer-item')
+    .forEach(el => el.classList.remove('winner', 'highlight'));
+  document.getElementById('randomizer-result-box').classList.add('hidden');
+};
+
 </script>
 </body>
 </html>
