@@ -130,7 +130,32 @@
     <h3 class="text-yellow-500 font-bungee text-xl mb-4 text-center">Inicia sesión</h3>
     <input id="admin-email" placeholder="Email" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-3 text-white">
     <input id="admin-password" type="password" placeholder="Contraseña" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-4 text-white">
-    <button id="admin-login-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded font-bold transition-all">Entrar como admin</button>
+    <button id="admin-login-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded font-bold transition-all">Entrar</button>
+    <div class="mt-4 text-center text-sm text-slate-400">
+      ¿No tienes cuenta?
+      <button id="show-register-btn" class="text-yellow-400 hover:text-yellow-300 font-semibold">Regístrate</button>
+    </div>
+  </div>
+
+  <div id="register-panel" class="hidden max-w-md mx-auto bg-slate-900 p-6 rounded-xl border border-yellow-500/20 mb-6 shadow-2xl">
+    <h3 class="text-yellow-500 font-bungee text-xl mb-4 text-center">Crea tu cuenta</h3>
+    <input id="register-email" placeholder="Email" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-3 text-white">
+    <input id="register-password" type="password" placeholder="Contraseña" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-4 text-white">
+    <button id="register-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded font-bold transition-all">Registrarme</button>
+    <div class="mt-4 text-center text-sm text-slate-400">
+      ¿Ya tienes cuenta?
+      <button id="show-login-btn" class="text-yellow-400 hover:text-yellow-300 font-semibold">Inicia sesión</button>
+    </div>
+  </div>
+
+  <div id="no-group-panel" class="hidden max-w-2xl mx-auto bg-slate-900 p-6 rounded-xl border border-yellow-500/20 mb-6 shadow-2xl">
+    <h3 class="text-yellow-500 font-bungee text-2xl mb-3 text-center">¡Registrado!</h3>
+    <p class="text-slate-300 text-center">
+      Parece que no perteneces a ningún grupo. Si crees que esto es un error, escríbeme para incluirte.
+    </p>
+    <div class="mt-6 flex items-center justify-center gap-3">
+      <button id="logout-no-group-btn" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded font-bold">Cerrar sesión</button>
+    </div>
   </div>
 
   <div id="main-content" class="hidden">
@@ -151,8 +176,7 @@
         <i class="fas fa-dice"></i>
       </button>
     </div>
-
-      <div id="movies-grid" class="flex flex-col gap-6 md:grid md:grid-cols-3"></div>
+      <div id="movies-grid" class="flex flex-col gap-6 md:grid md:grid-cols-3 mb-12"></div>
     </section>
 
     <section id="control-panel" class="hidden bg-slate-900 p-8 rounded-3xl border border-yellow-500/20">
@@ -227,7 +251,7 @@
 <script type="module">
 /* ========== IMPORTS FIREBASE ========== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /* ========== FIREBASE CONFIG ========== */
@@ -286,6 +310,36 @@ document.getElementById("admin-logout-btn").onclick = async () => {
   alert("Sesión cerrada");
 };
 
+document.getElementById("show-register-btn").onclick = () => {
+  document.getElementById("admin-login-panel").classList.add("hidden");
+  document.getElementById("register-panel").classList.remove("hidden");
+};
+
+document.getElementById("show-login-btn").onclick = () => {
+  document.getElementById("register-panel").classList.add("hidden");
+  document.getElementById("admin-login-panel").classList.remove("hidden");
+};
+
+document.getElementById("register-btn").onclick = async () => {
+  const email = document.getElementById("register-email").value;
+  const password = document.getElementById("register-password").value;
+  if (!email || !password) {
+    alert("Completa email y contraseña.");
+    return;
+  }
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo registrar. Revisa el correo o la contraseña.");
+  }
+};
+
+document.getElementById("logout-no-group-btn").onclick = async () => {
+  await signOut(auth);
+};
+
+
 /* ========== OMDb ========== */
 const OMDB_API_KEY = "8b02fcfe";
 async function fetchMovieData(title) {
@@ -321,6 +375,8 @@ const onAuthStateChangedHandler = async (user) => {
   const loginPanel = document.getElementById("admin-login-panel");
   const controlPanel = document.getElementById("control-panel");
   const mainContent = document.getElementById("main-content"); 
+  const registerPanel = document.getElementById("register-panel");
+  const noGroupPanel = document.getElementById("no-group-panel");
   
   const mainHeader = document.getElementById("main-header");
   const heroContent = document.getElementById("hero-content");
@@ -330,6 +386,8 @@ const onAuthStateChangedHandler = async (user) => {
     uid = null;
     isAdminFlag = false;
     loginPanel.classList.remove("hidden");
+    registerPanel.classList.add("hidden");
+    noGroupPanel.classList.add("hidden");
     mainContent.classList.add("hidden"); 
     controlPanel.classList.add("hidden");
     mainHeader.classList.remove("is-logged-in");
@@ -346,6 +404,8 @@ const onAuthStateChangedHandler = async (user) => {
     selectedGroup = userGroups[0];
     docRef = doc(db, "cine-verano", selectedGroup);
     loginPanel.classList.add("hidden");
+    registerPanel.classList.add("hidden");
+    noGroupPanel.classList.add("hidden");
     mainContent.classList.remove("hidden"); 
     controlPanel.classList.remove("hidden");
     mainHeader.classList.add("is-logged-in");
@@ -353,8 +413,14 @@ const onAuthStateChangedHandler = async (user) => {
     navbarContent.classList.remove("hidden");
     init();
   } else {
-    alert("Usuario sin permisos.");
-    await signOut(auth);
+    loginPanel.classList.add("hidden");
+    registerPanel.classList.add("hidden");
+    mainContent.classList.add("hidden");
+    controlPanel.classList.add("hidden");
+    noGroupPanel.classList.remove("hidden");
+    mainHeader.classList.remove("is-logged-in");
+    heroContent.classList.add("hidden");
+    navbarContent.classList.remove("hidden");
   }
 };
 
