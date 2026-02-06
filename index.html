@@ -93,6 +93,17 @@
 
   .randomizer-item { aspect-ratio: 2/3; border-radius: 6px; overflow: hidden; border: 2px solid transparent; transition: all 0.2s; position: relative; }
   .randomizer-item img { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
+  .randomizer-item.no-poster {
+    background: #0b1220;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 0.65rem;
+    text-align: center;
+    padding: 8px;
+  }
   .randomizer-item.highlight { border-color: #eab308; transform: scale(1.05); z-index: 10; }
   .randomizer-item.highlight img { opacity: 1; }
   .randomizer-item.winner { border-color: #22c55e; box-shadow: 0 0 20px rgba(34,197,94,.5); transform: scale(1.1); }
@@ -127,7 +138,32 @@
     <h3 class="text-yellow-500 font-bungee text-xl mb-4 text-center">Inicia sesión</h3>
     <input id="admin-email" placeholder="Email" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-3 text-white">
     <input id="admin-password" type="password" placeholder="Contraseña" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-4 text-white">
-    <button id="admin-login-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded font-bold transition-all">Entrar como admin</button>
+    <button id="admin-login-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded font-bold transition-all">Entrar</button>
+    <div class="mt-4 text-center text-sm text-slate-400">
+      ¿No tienes cuenta?
+      <button id="show-register-btn" class="text-yellow-400 hover:text-yellow-300 font-semibold">Regístrate</button>
+    </div>
+  </div>
+
+  <div id="register-panel" class="hidden max-w-md mx-auto bg-slate-900 p-6 rounded-xl border border-yellow-500/20 mb-6 shadow-2xl">
+    <h3 class="text-yellow-500 font-bungee text-xl mb-4 text-center">Crea tu cuenta</h3>
+    <input id="register-email" placeholder="Email" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-3 text-white">
+    <input id="register-password" type="password" placeholder="Contraseña" class="w-full p-3 rounded bg-slate-800 border border-slate-700 mb-4 text-white">
+    <button id="register-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded font-bold transition-all">Registrarme</button>
+    <div class="mt-4 text-center text-sm text-slate-400">
+      ¿Ya tienes cuenta?
+      <button id="show-login-btn" class="text-yellow-400 hover:text-yellow-300 font-semibold">Inicia sesión</button>
+    </div>
+  </div>
+
+  <div id="no-group-panel" class="hidden max-w-2xl mx-auto bg-slate-900 p-6 rounded-xl border border-yellow-500/20 mb-6 shadow-2xl">
+    <h3 class="text-yellow-500 font-bungee text-2xl mb-3 text-center">¡Registrado!</h3>
+    <p class="text-slate-300 text-center">
+      Parece que no perteneces a ningún grupo. Si crees que esto es un error, escríbeme para incluirte.
+    </p>
+    <div class="mt-6 flex items-center justify-center gap-3">
+      <button id="logout-no-group-btn" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded font-bold">Cerrar sesión</button>
+    </div>
   </div>
 
   <div id="main-content" class="hidden">
@@ -148,8 +184,7 @@
         <i class="fas fa-dice"></i>
       </button>
     </div>
-
-      <div id="movies-grid" class="flex flex-col gap-6 md:grid md:grid-cols-3"></div>
+      <div id="movies-grid" class="flex flex-col gap-6 md:grid md:grid-cols-3 mb-12"></div>
     </section>
 
     <section id="control-panel" class="hidden bg-slate-900 p-8 rounded-3xl border border-yellow-500/20">
@@ -224,7 +259,7 @@
 <script type="module">
 /* ========== IMPORTS FIREBASE ========== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /* ========== FIREBASE CONFIG ========== */
@@ -248,8 +283,24 @@ let userGroups = [];
 let selectedGroup = null;
 let docRef = null;
 let unsubscribeSchedule = null;
+let sharedDocRef = null;
+let sharedMovies = [];
+let unsubscribeShared = null;
+const SHARED_CATEGORY_LABEL = "Mejoras Web";
+const SHARED_DOC_ID = "__shared_mejoras_web";
 
 /* ========== FUNCIONES AUX ========== */
+function normalizeLabel(label) {
+  return (label || "").trim().toLowerCase();
+}
+
+function ensureSharedCategory(list) {
+  const safeList = Array.isArray(list) ? list : [];
+  const exists = safeList.some(d => normalizeLabel(d.label) === normalizeLabel(SHARED_CATEGORY_LABEL));
+  if (exists) return { list: safeList, changed: false };
+  return { list: [...safeList, { label: SHARED_CATEGORY_LABEL, movies: [] }], changed: true };
+}
+
 async function getUserGroups(uid) {
   const q = query(collection(db, "groups"), where("members", "array-contains", uid));
   const snap = await getDocs(q);
@@ -283,6 +334,36 @@ document.getElementById("admin-logout-btn").onclick = async () => {
   alert("Sesión cerrada");
 };
 
+document.getElementById("show-register-btn").onclick = () => {
+  document.getElementById("admin-login-panel").classList.add("hidden");
+  document.getElementById("register-panel").classList.remove("hidden");
+};
+
+document.getElementById("show-login-btn").onclick = () => {
+  document.getElementById("register-panel").classList.add("hidden");
+  document.getElementById("admin-login-panel").classList.remove("hidden");
+};
+
+document.getElementById("register-btn").onclick = async () => {
+  const email = document.getElementById("register-email").value;
+  const password = document.getElementById("register-password").value;
+  if (!email || !password) {
+    alert("Completa email y contraseña.");
+    return;
+  }
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo registrar. Revisa el correo o la contraseña.");
+  }
+};
+
+document.getElementById("logout-no-group-btn").onclick = async () => {
+  await signOut(auth);
+};
+
+
 /* ========== OMDb ========== */
 const OMDB_API_KEY = "8b02fcfe";
 async function fetchMovieData(title) {
@@ -306,9 +387,27 @@ function init() {
   if (!docRef) return;
   if (unsubscribeSchedule) unsubscribeSchedule();
   unsubscribeSchedule = onSnapshot(docRef, snap => {
-    schedule = snap.exists()
+    const baseList = snap.exists()
       ? snap.data().list
       : [{ label: "Día 1", movies: [] }];
+    const ensured = ensureSharedCategory(baseList);
+    schedule = ensured.list;
+    if (ensured.changed) {
+      setDoc(docRef, { list: schedule });
+    }
+    render();
+  });
+}
+
+function initShared() {
+  if (!sharedDocRef) return;
+  if (unsubscribeShared) unsubscribeShared();
+  unsubscribeShared = onSnapshot(sharedDocRef, snap => {
+    const data = snap.exists() ? snap.data() : { movies: [] };
+    sharedMovies = Array.isArray(data.movies) ? data.movies : [];
+    if (!snap.exists()) {
+      setDoc(sharedDocRef, { movies: sharedMovies });
+    }
     render();
   });
 }
@@ -318,6 +417,8 @@ const onAuthStateChangedHandler = async (user) => {
   const loginPanel = document.getElementById("admin-login-panel");
   const controlPanel = document.getElementById("control-panel");
   const mainContent = document.getElementById("main-content"); 
+  const registerPanel = document.getElementById("register-panel");
+  const noGroupPanel = document.getElementById("no-group-panel");
   
   const mainHeader = document.getElementById("main-header");
   const heroContent = document.getElementById("hero-content");
@@ -327,6 +428,8 @@ const onAuthStateChangedHandler = async (user) => {
     uid = null;
     isAdminFlag = false;
     loginPanel.classList.remove("hidden");
+    registerPanel.classList.add("hidden");
+    noGroupPanel.classList.add("hidden");
     mainContent.classList.add("hidden"); 
     controlPanel.classList.add("hidden");
     mainHeader.classList.remove("is-logged-in");
@@ -342,16 +445,26 @@ const onAuthStateChangedHandler = async (user) => {
   if (isAdminFlag) {
     selectedGroup = userGroups[0];
     docRef = doc(db, "cine-verano", selectedGroup);
+    sharedDocRef = doc(db, "cine-verano", SHARED_DOC_ID);
     loginPanel.classList.add("hidden");
+    registerPanel.classList.add("hidden");
+    noGroupPanel.classList.add("hidden");
     mainContent.classList.remove("hidden"); 
     controlPanel.classList.remove("hidden");
     mainHeader.classList.add("is-logged-in");
     heroContent.classList.add("hidden");
     navbarContent.classList.remove("hidden");
     init();
+    initShared();
   } else {
-    alert("Usuario sin permisos.");
-    await signOut(auth);
+    loginPanel.classList.add("hidden");
+    registerPanel.classList.add("hidden");
+    mainContent.classList.add("hidden");
+    controlPanel.classList.add("hidden");
+    noGroupPanel.classList.remove("hidden");
+    mainHeader.classList.remove("is-logged-in");
+    heroContent.classList.add("hidden");
+    navbarContent.classList.remove("hidden");
   }
 };
 
@@ -360,6 +473,10 @@ onAuthStateChanged(auth, onAuthStateChangedHandler);
 /* ========== BORRADO ========== */
 window.deleteCategory = async (index, e) => {
   e.stopPropagation();
+  if (normalizeLabel(schedule[index]?.label) === normalizeLabel(SHARED_CATEGORY_LABEL)) {
+    alert("No se puede eliminar la categoría compartida.");
+    return;
+  }
   if (!confirm("¿Eliminar esta categoría y todas sus películas?")) return;
   schedule.splice(index, 1);
   if (currentDay >= schedule.length) currentDay = Math.max(0, schedule.length - 1);
@@ -369,8 +486,15 @@ window.deleteCategory = async (index, e) => {
 window.deleteMovie = async (movieIndex, e) => {
   e.stopPropagation();
   if (!confirm("¿Eliminar esta película?")) return;
-  schedule[currentDay].movies.splice(movieIndex, 1);
-  await setDoc(docRef, { list: schedule });
+  const day = schedule[currentDay];
+  const isShared = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
+  if (isShared) {
+    sharedMovies.splice(movieIndex, 1);
+    await setDoc(sharedDocRef, { movies: sharedMovies });
+  } else {
+    schedule[currentDay].movies.splice(movieIndex, 1);
+    await setDoc(docRef, { list: schedule });
+  }
 };
 
 /* ========== RENDER ========= */
@@ -382,13 +506,16 @@ function render() {
 
   const day = schedule[currentDay];
   titleContainer.innerText = day ? day.label : (selectedGroup || "");
+  const isSharedNoPoster = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
+  const activeMovies = isSharedNoPoster ? sharedMovies : (day && day.movies ? day.movies : []);
 
   dropdownList.innerHTML = "";
   daySelect.innerHTML = "";
 
-  if (userGroups.length > 1) {
+  const visibleGroups = userGroups.filter(g => g !== SHARED_DOC_ID);
+  if (visibleGroups.length > 1) {
     dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Cambiar Grupo</div>`;
-    userGroups.forEach(g => {
+    visibleGroups.forEach(g => {
       dropdownList.innerHTML += `
         <button onclick="changeGroup('${g}')" class="px-4 py-2 text-left hover:bg-slate-700 text-sm ${g === selectedGroup ? "text-yellow-500" : "text-slate-300"}">
           <i class="fas fa-users mr-2 opacity-50"></i>${g}
@@ -400,21 +527,22 @@ function render() {
   dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Días / Cartelera</div>`;
 
   schedule.forEach((d, i) => {
+    const isShared = normalizeLabel(d.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
     dropdownList.innerHTML += `
       <div class="flex items-center hover:bg-slate-800 border-b border-slate-800 last:border-0">
         <button onclick="changeDay(${i})" class="flex-1 px-4 py-3 text-left ${i === currentDay ? "text-yellow-400 font-bold" : "text-white"}">
           <i class="fas fa-calendar-day mr-2 opacity-50"></i>${d.label}
         </button>
-        ${isAdminFlag ? `<button onclick="deleteCategory(${i}, event)" class="px-4 text-slate-500 hover:text-red-500"><i class="fas fa-times"></i></button>` : ''}
+        ${isAdminFlag && !isShared ? `<button onclick="deleteCategory(${i}, event)" class="px-4 text-slate-500 hover:text-red-500"><i class="fas fa-times"></i></button>` : ''}
       </div>`;
     daySelect.innerHTML += `<option value="${i}">${d.label}</option>`;
   });
 
   grid.innerHTML = "";
-  if (!day || !day.movies) return;
+  if (!day || !activeMovies) return;
 
   // ORDENAR POR VOTOS Y LUEGO POR NOTA
-  const sortedMovies = [...day.movies].sort((a, b) => {
+  const sortedMovies = [...activeMovies].sort((a, b) => {
     const votesA = a.votes ? Object.keys(a.votes).length : 0;
     const votesB = b.votes ? Object.keys(b.votes).length : 0;
 
@@ -428,7 +556,7 @@ function render() {
   });
 
   sortedMovies.forEach(m => {
-    const realIndex = day.movies.indexOf(m);
+    const realIndex = activeMovies.indexOf(m);
     const votes = m.votes ? Object.keys(m.votes).length : 0;
     const voted = uid && m.votes && m.votes[uid];
     const isTime = /^[\d:.]+$/.test(m.time);
@@ -438,10 +566,10 @@ function render() {
     const imdbSearchUrl = `https://www.imdb.com/find?q=${encodeURIComponent(m.title)}`;
 
     grid.innerHTML += `
-      <div class="relative bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch shadow-xl transition-transform hover:scale-[1.01]">
+      <div class="relative bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch shadow-xl transition-transform hover:scale-[1.01] ${isSharedNoPoster ? "py-2 md:py-0" : ""}">
         ${isAdminFlag ? `<button onclick="deleteMovie(${realIndex}, event)" class="absolute top-2 right-2 z-20 text-slate-500 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>` : ''}
         
-        <img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">
+        ${isSharedNoPoster ? "" : `<img src="${m.img}" class="w-28 h-40 ml-4 mt-4 mb-4 rounded-lg md:m-0 md:rounded-none md:w-full md:aspect-[2/3] object-cover bg-black">`}
         
         <div class="p-4 flex-1 w-full">
           <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">${m.time}</span>
@@ -475,17 +603,29 @@ window.addEventListener('click', (e) => {
 
 window.toggleVote = async (d,m) => {
   if (!isAdminFlag || !uid) { alert("Solo los administradores pueden votar."); return; }
-  const movie = schedule[d].movies[m];
+  const day = schedule[d];
+  const isShared = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
+  const list = isShared ? sharedMovies : (day && day.movies ? day.movies : []);
+  const movie = list[m];
+  if (!movie) return;
   if (!movie.votes) movie.votes = {};
   if (movie.votes[uid]) delete movie.votes[uid];
   else movie.votes[uid] = true;
-  await setDoc(docRef, { list: schedule });
+  if (isShared) {
+    await setDoc(sharedDocRef, { movies: list });
+  } else {
+    await setDoc(docRef, { list: schedule });
+  }
 };
 
 document.getElementById("add-category-btn").onclick = async () => {
   if (!isAdminFlag) return;
   const label = document.getElementById("new-category-label").value;
   if (!label) return;
+  if (normalizeLabel(label) === normalizeLabel(SHARED_CATEGORY_LABEL)) {
+    alert("Esa categoría ya está compartida para todos los grupos.");
+    return;
+  }
   schedule.push({ label, movies: [] });
   document.getElementById("new-category-label").value = "";
   await setDoc(docRef, { list: schedule });
@@ -498,10 +638,17 @@ document.getElementById("add-movie-btn").onclick = async () => {
   const h = document.getElementById("new-movie-details").value;
   if (!t || !h) return;
   const data = await fetchMovieData(t);
-  schedule[d].movies.push({ title: t, time: h, img: data.img, rating: data.rating, votes: {} });
+  const day = schedule[d];
+  const isShared = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
+  if (isShared) {
+    sharedMovies.push({ title: t, time: h, img: data.img, rating: data.rating, votes: {} });
+    await setDoc(sharedDocRef, { movies: sharedMovies });
+  } else {
+    schedule[d].movies.push({ title: t, time: h, img: data.img, rating: data.rating, votes: {} });
+    await setDoc(docRef, { list: schedule });
+  }
   document.getElementById("new-movie-title").value = "";
   document.getElementById("new-movie-details").value = "";
-  await setDoc(docRef, { list: schedule });
 };
 
 /* ========== ALEATORIZADOR ========== */
@@ -511,16 +658,18 @@ let isRunning = false;
 
 function openRandomizer() {
   const day = schedule[currentDay];
-  if (!day || day.movies.length < 2) {
+  const isSharedNoPoster = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
+  const activeMovies = isSharedNoPoster ? sharedMovies : (day && day.movies ? day.movies : []);
+  if (!day || activeMovies.length < 2) {
     alert("Añade al menos 2 películas");
     return;
   }
 
   randGrid.innerHTML = "";
-  day.movies.forEach((m, i) => {
+  activeMovies.forEach((m, i) => {
     randGrid.innerHTML += `
-      <div class="randomizer-item" data-index="${i}">
-        <img src="${m.img}">
+      <div class="randomizer-item ${isSharedNoPoster ? "no-poster" : ""}" data-index="${i}">
+        ${isSharedNoPoster ? `<span>${m.title}</span>` : `<img src="${m.img}">`}
       </div>`;
   });
 
@@ -561,7 +710,7 @@ document.getElementById('run-randomizer').onclick = () => {
     } else {
       items[idx].classList.add('winner');
       document.getElementById('randomizer-result').innerText =
-        schedule[currentDay].movies[idx].title;
+        (isSharedNoPoster ? sharedMovies[idx].title : schedule[currentDay].movies[idx].title);
       document.getElementById('randomizer-result-box').classList.remove('hidden');
       isRunning = false;
     }
