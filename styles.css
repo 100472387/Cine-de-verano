@@ -36,6 +36,41 @@
       margin: 0 !important;
   }
 
+  #navbar-menu-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+  }
+
+  #navbar-menu-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.8);
+    backdrop-filter: blur(3px);
+  }
+
+  #navbar-menu-drawer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: min(320px, 88vw);
+    background: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+    border-right: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: 16px 0 40px rgba(0, 0, 0, 0.55);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: slideInDrawer 0.22s ease-out;
+    overflow-y: auto;
+  }
+
+  @keyframes slideInDrawer {
+    from { transform: translateX(-12px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
   .time-badge {
     font-size: 0.8rem !important; 
     padding: 3px 10px !important;

@@ -35,6 +35,36 @@ const SHARED_DOC_ID = "__shared_mejoras_web";
 const DEFAULT_PROFILE_PHOTO = "https://ui-avatars.com/api/?background=334155&color=f8fafc&size=128&name=CV";
 let userProfile = { displayName: "Usuario", photoURL: DEFAULT_PROFILE_PHOTO };
 let currentMainView = "groups";
+let predictionsByUser = {};
+const profileCache = {};
+const loadingProfileIds = new Set();
+const OSCAR_SURVEY = [
+  {
+    key: "best_picture",
+    label: "Mejor pelicula",
+    candidates: ["Bugonia", "F1", "Frankenstein", "Hamnet", "Marty Supreme", "One Battle after Another", "The Secret Agent", "Sentimental Value", "Sinners", "Train Dreams"]
+  },
+  {
+    key: "best_director",
+    label: "Mejor direccion",
+    candidates: ["Chloe Zhao (Hamnet)", "Josh Safdie (Marty Supreme)", "Paul Thomas Anderson (One Battle after Another)", "Joachim Trier (Sentimental Value)", "Ryan Coogler (Sinners)"]
+  },
+  {
+    key: "best_actress",
+    label: "Mejor actriz",
+    candidates: ["Jessie Buckley", "Rose Byrne", "Kate Hudson", "Renate Reinsve", "Emma Stone"]
+  },
+  {
+    key: "best_actor",
+    label: "Mejor actor",
+    candidates: ["Timothee Chalamet", "Leonardo DiCaprio", "Ethan Hawke", "Michael B. Jordan", "Wagner Moura"]
+  },
+  {
+    key: "best_animated",
+    label: "Mejor pelicula animada",
+    candidates: ["Arco", "Elio", "KPop Demon Hunters", "Little Amelie or the Character of Rain", "Zootopia 2"]
+  }
+];
 
 /* ========== FUNCIONES AUX ========== */
 function normalizeLabel(label) {
@@ -162,19 +192,174 @@ function normalizeProfileData(data, fallbackName = "Usuario") {
   return { displayName, photoURL };
 }
 
+function normalizePredictionsData(rawData) {
+  if (!rawData || typeof rawData !== "object") return {};
+  const normalized = {};
+  Object.entries(rawData).forEach(([userId, entry]) => {
+    if (!userId || !entry || typeof entry !== "object") return;
+    const answers = {};
+    const rawAnswers = entry.answers && typeof entry.answers === "object" ? entry.answers : {};
+    OSCAR_SURVEY.forEach((category) => {
+      const value = rawAnswers[category.key];
+      if (category.candidates.includes(value)) answers[category.key] = value;
+    });
+    normalized[userId] = {
+      answers,
+      updatedAt: Number(entry.updatedAt) || 0,
+      displayName: typeof entry.displayName === "string" ? entry.displayName.slice(0, 40) : "",
+      photoURL: sanitizeHttpUrl(entry.photoURL || "", "")
+    };
+  });
+  return normalized;
+}
+
+async function fetchProfilesToCache(userIds) {
+  const pending = (Array.isArray(userIds) ? userIds : []).filter(
+    (id) => id && !profileCache[id] && !loadingProfileIds.has(id)
+  );
+  if (!pending.length) return;
+  pending.forEach((id) => loadingProfileIds.add(id));
+  try {
+    const snaps = await Promise.all(pending.map((id) => getDoc(doc(db, "profiles", id))));
+    snaps.forEach((snap, index) => {
+      const id = pending[index];
+      const profile = snap.exists() ? snap.data() : {};
+      profileCache[id] = normalizeProfileData(profile, "Usuario");
+      loadingProfileIds.delete(id);
+    });
+    renderPredictions();
+  } catch (err) {
+    console.error("No se pudieron cargar perfiles para el ranking", err);
+    pending.forEach((id) => loadingProfileIds.delete(id));
+  }
+}
+
+function getCurrentUserPredictionAnswers() {
+  return predictionsByUser[uid] && predictionsByUser[uid].answers ? predictionsByUser[uid].answers : {};
+}
+
+function computePredictionsRanking() {
+  const tally = {};
+  OSCAR_SURVEY.forEach((category) => {
+    tally[category.key] = {};
+    category.candidates.forEach((candidate) => {
+      tally[category.key][candidate] = 0;
+    });
+  });
+
+  Object.values(predictionsByUser).forEach((entry) => {
+    if (!entry || !entry.answers) return;
+    OSCAR_SURVEY.forEach((category) => {
+      const picked = entry.answers[category.key];
+      if (picked && tally[category.key] && typeof tally[category.key][picked] === "number") {
+        tally[category.key][picked] += 1;
+      }
+    });
+  });
+
+  const ranking = Object.entries(predictionsByUser).map(([userId, entry]) => {
+    let score = 0;
+    let answered = 0;
+    OSCAR_SURVEY.forEach((category) => {
+      const picked = entry.answers ? entry.answers[category.key] : "";
+      if (picked) {
+        answered += 1;
+        score += tally[category.key][picked] || 0;
+      }
+    });
+    return {
+      userId,
+      score,
+      answered,
+      updatedAt: Number(entry.updatedAt) || 0,
+      displayName: entry.displayName || "",
+      photoURL: entry.photoURL || ""
+    };
+  });
+
+  ranking.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.answered !== a.answered) return b.answered - a.answered;
+    return b.updatedAt - a.updatedAt;
+  });
+
+  return ranking;
+}
+
+function renderPredictions() {
+  const formContainer = document.getElementById("predictions-form");
+  const rankingContainer = document.getElementById("predictions-ranking");
+  if (!formContainer || !rankingContainer) return;
+
+  const answers = getCurrentUserPredictionAnswers();
+  formContainer.innerHTML = OSCAR_SURVEY.map((category) => {
+    const options = category.candidates.map((candidate) => {
+      const selected = answers[category.key] === candidate ? "selected" : "";
+      return `<option value="${escapeHtml(candidate)}" ${selected}>${escapeHtml(candidate)}</option>`;
+    }).join("");
+    return `
+      <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-3">
+        <label class="block text-sm text-slate-300 mb-2">${escapeHtml(category.label)}</label>
+        <select data-prediction-key="${escapeHtml(category.key)}" class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-slate-100">
+          <option value="">Selecciona candidata</option>
+          ${options}
+        </select>
+      </div>`;
+  }).join("");
+
+  const ranking = computePredictionsRanking();
+  if (!ranking.length) {
+    rankingContainer.innerHTML = `<div class="text-slate-400 text-sm">Todavia no hay predicciones guardadas.</div>`;
+    return;
+  }
+
+  const unknownUsers = [];
+  rankingContainer.innerHTML = ranking.map((row, index) => {
+    const profile = profileCache[row.userId] || null;
+    const displayName = row.displayName || (profile ? profile.displayName : `Usuario ${row.userId.slice(0, 6)}`);
+    const photoURL = normalizePhotoURL(row.photoURL || (profile ? profile.photoURL : ""), displayName);
+    if (!row.displayName && !profileCache[row.userId]) unknownUsers.push(row.userId);
+
+    return `
+      <div class="flex items-center gap-3 bg-slate-800/80 border border-slate-700 rounded-xl p-3">
+        <div class="w-7 text-center font-black ${index < 3 ? "text-yellow-400" : "text-slate-500"}">#${index + 1}</div>
+        <img src="${escapeHtml(photoURL)}" alt="Foto" class="w-10 h-10 rounded-full object-cover border border-slate-600 bg-slate-700">
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-slate-100 truncate">${escapeHtml(displayName)}</div>
+          <div class="text-xs text-slate-400">${row.answered}/${OSCAR_SURVEY.length} categorias</div>
+        </div>
+        <div class="text-right">
+          <div class="text-yellow-400 font-black text-lg">${row.score}</div>
+          <div class="text-[11px] text-slate-500">pts</div>
+        </div>
+      </div>`;
+  }).join("");
+
+  if (unknownUsers.length) fetchProfilesToCache(unknownUsers);
+}
+
 function showMainView(viewName) {
-  currentMainView = viewName === "profile" ? "profile" : "groups";
+  currentMainView = ["groups", "profile", "predictions"].includes(viewName) ? viewName : "groups";
   const groupsView = document.getElementById("groups-view");
   const profileView = document.getElementById("profile-view");
-  if (!groupsView || !profileView) return;
+  const predictionsView = document.getElementById("predictions-view");
+  if (!groupsView || !profileView || !predictionsView) return;
 
   if (currentMainView === "profile") {
     groupsView.classList.add("hidden");
     profileView.classList.remove("hidden");
+    predictionsView.classList.add("hidden");
+  } else if (currentMainView === "predictions") {
+    groupsView.classList.add("hidden");
+    profileView.classList.add("hidden");
+    predictionsView.classList.remove("hidden");
+    renderPredictions();
   } else {
     profileView.classList.add("hidden");
+    predictionsView.classList.add("hidden");
     groupsView.classList.remove("hidden");
   }
+  updateNavbarViewState();
 }
 
 function updateProfileUI() {
@@ -303,27 +488,97 @@ document.getElementById("save-profile-btn").onclick = async () => {
 
 const navbarMenuBtn = document.getElementById("navbar-menu-btn");
 const navbarMenuPanel = document.getElementById("navbar-menu-panel");
+const navbarMenuOverlay = document.getElementById("navbar-menu-overlay");
+const navbarMenuDrawer = document.getElementById("navbar-menu-drawer");
+const navbarMenuCloseBtn = document.getElementById("navbar-menu-close-btn");
 const navGroupsBtn = document.getElementById("nav-groups-btn");
 const navProfileBtn = document.getElementById("nav-profile-btn");
+const navPredictionsBtn = document.getElementById("nav-predictions-btn");
+
+function updateNavbarViewState() {
+  const viewByButton = [
+    [navGroupsBtn, "groups"],
+    [navProfileBtn, "profile"],
+    [navPredictionsBtn, "predictions"]
+  ];
+  viewByButton.forEach(([button, viewName]) => {
+    if (!button) return;
+    const isActive = currentMainView === viewName;
+    button.classList.toggle("bg-slate-800", isActive);
+    button.classList.toggle("text-yellow-400", isActive);
+    button.classList.toggle("font-bold", isActive);
+  });
+}
+
+function openNavbarMenu() {
+  navbarMenuPanel.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeNavbarMenu() {
+  navbarMenuPanel.classList.add("hidden");
+  document.body.style.overflow = "";
+}
 
 navbarMenuBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  navbarMenuPanel.classList.toggle("hidden");
+  if (navbarMenuPanel.classList.contains("hidden")) openNavbarMenu();
+  else closeNavbarMenu();
 });
 
-navbarMenuPanel.addEventListener("click", (e) => {
+navbarMenuDrawer.addEventListener("click", (e) => {
   e.stopPropagation();
 });
 
+navbarMenuOverlay.addEventListener("click", closeNavbarMenu);
+navbarMenuCloseBtn.addEventListener("click", closeNavbarMenu);
+
 navGroupsBtn.addEventListener("click", () => {
   showMainView("groups");
-  navbarMenuPanel.classList.add("hidden");
+  closeNavbarMenu();
 });
 
 navProfileBtn.addEventListener("click", () => {
   showMainView("profile");
-  navbarMenuPanel.classList.add("hidden");
+  closeNavbarMenu();
 });
+
+navPredictionsBtn.addEventListener("click", () => {
+  showMainView("predictions");
+  closeNavbarMenu();
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeNavbarMenu();
+});
+
+document.getElementById("save-predictions-btn").onclick = async () => {
+  if (!isAdminFlag || !uid || !docRef) return;
+  const answers = {};
+  document.querySelectorAll("[data-prediction-key]").forEach((el) => {
+    const key = el.getAttribute("data-prediction-key");
+    const category = OSCAR_SURVEY.find((c) => c.key === key);
+    if (!category) return;
+    const picked = (el.value || "").trim();
+    if (category.candidates.includes(picked)) {
+      answers[key] = picked;
+    }
+  });
+  if (Object.keys(answers).length !== OSCAR_SURVEY.length) {
+    alert("Completa todas las categorias antes de guardar.");
+    return;
+  }
+
+  predictionsByUser[uid] = {
+    answers,
+    updatedAt: Date.now(),
+    displayName: userProfile.displayName || "Usuario",
+    photoURL: userProfile.photoURL || ""
+  };
+  await setDoc(docRef, { predictions: predictionsByUser }, { merge: true });
+  renderPredictions();
+  alert("Predicciones guardadas.");
+};
 
 
 /* ========== OMDb ========== */
@@ -349,13 +604,13 @@ function init() {
   if (!docRef) return;
   if (unsubscribeSchedule) unsubscribeSchedule();
   unsubscribeSchedule = onSnapshot(docRef, snap => {
-    const baseList = snap.exists()
-      ? snap.data().list
-      : [{ label: "Día 1", movies: [] }];
+    const data = snap.exists() ? snap.data() : {};
+    const baseList = data.list || [{ label: "Dia 1", movies: [] }];
     const ensured = ensureSharedCategory(baseList);
     schedule = ensured.list;
+    predictionsByUser = normalizePredictionsData(data.predictions);
     if (ensured.changed) {
-      setDoc(docRef, { list: schedule });
+      setDoc(docRef, { list: schedule }, { merge: true });
     }
     render();
   });
@@ -368,7 +623,7 @@ function initShared() {
     const data = snap.exists() ? snap.data() : { movies: [] };
     sharedMovies = Array.isArray(data.movies) ? data.movies : [];
     if (!snap.exists()) {
-      setDoc(sharedDocRef, { movies: sharedMovies });
+      setDoc(sharedDocRef, { movies: sharedMovies }, { merge: true });
     }
     render();
   });
@@ -385,11 +640,11 @@ const onAuthStateChangedHandler = async (user) => {
   const mainHeader = document.getElementById("main-header");
   const heroContent = document.getElementById("hero-content");
   const navbarContent = document.getElementById("navbar-content");
-  const navbarMenu = document.getElementById("navbar-menu-panel");
 
   if (!user) {
     uid = null;
     isAdminFlag = false;
+    predictionsByUser = {};
     userProfile = { displayName: "Usuario", photoURL: DEFAULT_PROFILE_PHOTO };
     loginPanel.classList.remove("hidden");
     registerPanel.classList.add("hidden");
@@ -399,7 +654,7 @@ const onAuthStateChangedHandler = async (user) => {
     mainHeader.classList.remove("is-logged-in");
     heroContent.classList.remove("hidden");
     navbarContent.classList.add("hidden");
-    navbarMenu.classList.add("hidden");
+    closeNavbarMenu();
     showMainView("groups");
     updateProfileUI();
     return;
@@ -422,11 +677,12 @@ const onAuthStateChangedHandler = async (user) => {
     mainHeader.classList.add("is-logged-in");
     heroContent.classList.add("hidden");
     navbarContent.classList.remove("hidden");
-    navbarMenu.classList.add("hidden");
+    closeNavbarMenu();
     showMainView("groups");
     init();
     initShared();
   } else {
+    predictionsByUser = {};
     loginPanel.classList.add("hidden");
     registerPanel.classList.add("hidden");
     mainContent.classList.add("hidden");
@@ -435,7 +691,7 @@ const onAuthStateChangedHandler = async (user) => {
     mainHeader.classList.remove("is-logged-in");
     heroContent.classList.add("hidden");
     navbarContent.classList.remove("hidden");
-    navbarMenu.classList.add("hidden");
+    closeNavbarMenu();
     showMainView("groups");
   }
 };
@@ -452,7 +708,7 @@ window.deleteCategory = async (index, e) => {
   if (!confirm("¿Eliminar esta categoría y todas sus películas?")) return;
   schedule.splice(index, 1);
   if (currentDay >= schedule.length) currentDay = Math.max(0, schedule.length - 1);
-  await setDoc(docRef, { list: schedule });
+  await setDoc(docRef, { list: schedule }, { merge: true });
 };
 
 window.deleteMovie = async (movieIndex, e) => {
@@ -462,10 +718,10 @@ window.deleteMovie = async (movieIndex, e) => {
   const isShared = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
   if (isShared) {
     sharedMovies.splice(movieIndex, 1);
-    await setDoc(sharedDocRef, { movies: sharedMovies });
+    await setDoc(sharedDocRef, { movies: sharedMovies }, { merge: true });
   } else {
     schedule[currentDay].movies.splice(movieIndex, 1);
-    await setDoc(docRef, { list: schedule });
+    await setDoc(docRef, { list: schedule }, { merge: true });
   }
 };
 
@@ -514,7 +770,10 @@ function render() {
   });
 
   grid.innerHTML = "";
-  if (!day || !activeMovies) return;
+  if (!day || !activeMovies) {
+    renderPredictions();
+    return;
+  }
 
   // ORDENAR POR VOTOS Y LUEGO POR NOTA
   const sortedMovies = [...activeMovies].sort((a, b) => {
@@ -567,6 +826,7 @@ function render() {
         </div>
       </div>`;
   });
+  renderPredictions();
 }
 
 window.toggleMenu = () => { document.getElementById("dropdown-menu").classList.toggle("hidden"); };
@@ -581,7 +841,9 @@ window.addEventListener('click', (e) => {
   if (!document.getElementById('current-day-title').contains(e.target)) {
     document.getElementById('dropdown-menu').classList.add('hidden');
   }
-  if (!document.getElementById('navbar-content').contains(e.target)) {
+  if (!navbarMenuPanel.classList.contains("hidden")
+      && !navbarMenuDrawer.contains(e.target)
+      && !navbarMenuBtn.contains(e.target)) {
     document.getElementById('navbar-menu-panel').classList.add('hidden');
   }
 });
@@ -597,9 +859,9 @@ window.toggleVote = async (d,m) => {
   if (movie.votes[uid]) delete movie.votes[uid];
   else movie.votes[uid] = true;
   if (isShared) {
-    await setDoc(sharedDocRef, { movies: list });
+    await setDoc(sharedDocRef, { movies: list }, { merge: true });
   } else {
-    await setDoc(docRef, { list: schedule });
+    await setDoc(docRef, { list: schedule }, { merge: true });
   }
 };
 
@@ -613,7 +875,7 @@ document.getElementById("add-category-btn").onclick = async () => {
   }
   schedule.push({ label, movies: [] });
   document.getElementById("new-category-label").value = "";
-  await setDoc(docRef, { list: schedule });
+  await setDoc(docRef, { list: schedule }, { merge: true });
 };
 
 document.getElementById("add-movie-btn").onclick = async () => {
@@ -627,10 +889,10 @@ document.getElementById("add-movie-btn").onclick = async () => {
   const isShared = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
   if (isShared) {
     sharedMovies.push({ title: t, time: h, img: data.img, rating: data.rating, votes: {} });
-    await setDoc(sharedDocRef, { movies: sharedMovies });
+    await setDoc(sharedDocRef, { movies: sharedMovies }, { merge: true });
   } else {
     schedule[d].movies.push({ title: t, time: h, img: data.img, rating: data.rating, votes: {} });
-    await setDoc(docRef, { list: schedule });
+    await setDoc(docRef, { list: schedule }, { merge: true });
   }
   document.getElementById("new-movie-title").value = "";
   document.getElementById("new-movie-details").value = "";
