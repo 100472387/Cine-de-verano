@@ -36,6 +36,7 @@ const DEFAULT_PROFILE_PHOTO = "https://ui-avatars.com/api/?background=334155&col
 let userProfile = { displayName: "Usuario", photoURL: DEFAULT_PROFILE_PHOTO };
 let currentMainView = "groups";
 let predictionsByUser = {};
+let predictionWinners = {};
 const profileCache = {};
 const loadingProfileIds = new Set();
 const OSCAR_SURVEY = [
@@ -213,6 +214,22 @@ function normalizePredictionsData(rawData) {
   return normalized;
 }
 
+function normalizePredictionWinners(rawData) {
+  if (!rawData || typeof rawData !== "object") return {};
+  const normalized = {};
+  OSCAR_SURVEY.forEach((category) => {
+    const winner = rawData[category.key];
+    if (category.candidates.includes(winner)) {
+      normalized[category.key] = winner;
+    }
+  });
+  return normalized;
+}
+
+function hasPublishedWinners() {
+  return OSCAR_SURVEY.every((category) => typeof predictionWinners[category.key] === "string");
+}
+
 async function fetchProfilesToCache(userIds) {
   const pending = (Array.isArray(userIds) ? userIds : []).filter(
     (id) => id && !profileCache[id] && !loadingProfileIds.has(id)
@@ -239,23 +256,7 @@ function getCurrentUserPredictionAnswers() {
 }
 
 function computePredictionsRanking() {
-  const tally = {};
-  OSCAR_SURVEY.forEach((category) => {
-    tally[category.key] = {};
-    category.candidates.forEach((candidate) => {
-      tally[category.key][candidate] = 0;
-    });
-  });
-
-  Object.values(predictionsByUser).forEach((entry) => {
-    if (!entry || !entry.answers) return;
-    OSCAR_SURVEY.forEach((category) => {
-      const picked = entry.answers[category.key];
-      if (picked && tally[category.key] && typeof tally[category.key][picked] === "number") {
-        tally[category.key][picked] += 1;
-      }
-    });
-  });
+  const scoringEnabled = hasPublishedWinners();
 
   const ranking = Object.entries(predictionsByUser).map(([userId, entry]) => {
     let score = 0;
@@ -264,12 +265,14 @@ function computePredictionsRanking() {
       const picked = entry.answers ? entry.answers[category.key] : "";
       if (picked) {
         answered += 1;
-        score += tally[category.key][picked] || 0;
+        if (scoringEnabled && predictionWinners[category.key] === picked) {
+          score += 1;
+        }
       }
     });
     return {
       userId,
-      score,
+      score: scoringEnabled ? score : null,
       answered,
       updatedAt: Number(entry.updatedAt) || 0,
       displayName: entry.displayName || "",
@@ -278,12 +281,12 @@ function computePredictionsRanking() {
   });
 
   ranking.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
+    if (scoringEnabled && b.score !== a.score) return b.score - a.score;
     if (b.answered !== a.answered) return b.answered - a.answered;
     return b.updatedAt - a.updatedAt;
   });
 
-  return ranking;
+  return { ranking, scoringEnabled };
 }
 
 function renderPredictions() {
@@ -307,14 +310,18 @@ function renderPredictions() {
       </div>`;
   }).join("");
 
-  const ranking = computePredictionsRanking();
+  const { ranking, scoringEnabled } = computePredictionsRanking();
   if (!ranking.length) {
     rankingContainer.innerHTML = `<div class="text-slate-400 text-sm">Todavia no hay predicciones guardadas.</div>`;
     return;
   }
 
   const unknownUsers = [];
-  rankingContainer.innerHTML = ranking.map((row, index) => {
+  const statusBanner = scoringEnabled
+    ? `<div class="text-xs text-emerald-300 bg-emerald-900/20 border border-emerald-700/40 rounded-lg px-3 py-2">Resultados publicados. Puntos activos.</div>`
+    : `<div class="text-xs text-amber-300 bg-amber-900/20 border border-amber-700/40 rounded-lg px-3 py-2">Sin ganadoras oficiales: puntuacion pendiente.</div>`;
+
+  rankingContainer.innerHTML = statusBanner + ranking.map((row, index) => {
     const profile = profileCache[row.userId] || null;
     const displayName = row.displayName || (profile ? profile.displayName : `Usuario ${row.userId.slice(0, 6)}`);
     const photoURL = normalizePhotoURL(row.photoURL || (profile ? profile.photoURL : ""), displayName);
@@ -329,8 +336,8 @@ function renderPredictions() {
           <div class="text-xs text-slate-400">${row.answered}/${OSCAR_SURVEY.length} categorias</div>
         </div>
         <div class="text-right">
-          <div class="text-yellow-400 font-black text-lg">${row.score}</div>
-          <div class="text-[11px] text-slate-500">pts</div>
+          <div class="text-yellow-400 font-black text-lg">${scoringEnabled ? row.score : "--"}</div>
+          <div class="text-[11px] text-slate-500">${scoringEnabled ? "pts" : "pend."}</div>
         </div>
       </div>`;
   }).join("");
@@ -553,7 +560,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 document.getElementById("save-predictions-btn").onclick = async () => {
-  if (!isAdminFlag || !uid || !docRef) return;
+  if (!isAdminFlag || !uid || !sharedDocRef) return;
   const answers = {};
   document.querySelectorAll("[data-prediction-key]").forEach((el) => {
     const key = el.getAttribute("data-prediction-key");
@@ -575,7 +582,7 @@ document.getElementById("save-predictions-btn").onclick = async () => {
     displayName: userProfile.displayName || "Usuario",
     photoURL: userProfile.photoURL || ""
   };
-  await setDoc(docRef, { predictions: predictionsByUser }, { merge: true });
+  await setDoc(sharedDocRef, { predictions: predictionsByUser }, { merge: true });
   renderPredictions();
   alert("Predicciones guardadas.");
 };
@@ -608,7 +615,6 @@ function init() {
     const baseList = data.list || [{ label: "Dia 1", movies: [] }];
     const ensured = ensureSharedCategory(baseList);
     schedule = ensured.list;
-    predictionsByUser = normalizePredictionsData(data.predictions);
     if (ensured.changed) {
       setDoc(docRef, { list: schedule }, { merge: true });
     }
@@ -620,10 +626,12 @@ function initShared() {
   if (!sharedDocRef) return;
   if (unsubscribeShared) unsubscribeShared();
   unsubscribeShared = onSnapshot(sharedDocRef, snap => {
-    const data = snap.exists() ? snap.data() : { movies: [] };
+    const data = snap.exists() ? snap.data() : { movies: [], predictions: {}, predictionWinners: {} };
     sharedMovies = Array.isArray(data.movies) ? data.movies : [];
+    predictionsByUser = normalizePredictionsData(data.predictions);
+    predictionWinners = normalizePredictionWinners(data.predictionWinners);
     if (!snap.exists()) {
-      setDoc(sharedDocRef, { movies: sharedMovies }, { merge: true });
+      setDoc(sharedDocRef, { movies: sharedMovies, predictions: predictionsByUser, predictionWinners }, { merge: true });
     }
     render();
   });
@@ -645,6 +653,7 @@ const onAuthStateChangedHandler = async (user) => {
     uid = null;
     isAdminFlag = false;
     predictionsByUser = {};
+    predictionWinners = {};
     userProfile = { displayName: "Usuario", photoURL: DEFAULT_PROFILE_PHOTO };
     loginPanel.classList.remove("hidden");
     registerPanel.classList.add("hidden");
@@ -683,6 +692,7 @@ const onAuthStateChangedHandler = async (user) => {
     initShared();
   } else {
     predictionsByUser = {};
+    predictionWinners = {};
     loginPanel.classList.add("hidden");
     registerPanel.classList.add("hidden");
     mainContent.classList.add("hidden");
