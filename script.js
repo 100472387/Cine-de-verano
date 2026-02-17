@@ -37,23 +37,19 @@ let userProfile = { displayName: "Usuario", photoURL: DEFAULT_PROFILE_PHOTO };
 let currentMainView = "groups";
 let predictionsByUser = {};
 let predictionWinners = {};
+let isEditingPredictions = false;
 const profileCache = {};
 const loadingProfileIds = new Set();
 const OSCAR_SURVEY = [
   {
     key: "best_picture",
-    label: "Mejor pelicula",
+    label: "Mejor película",
     candidates: ["Bugonia", "F1", "Frankenstein", "Hamnet", "Marty Supreme", "One Battle after Another", "The Secret Agent", "Sentimental Value", "Sinners", "Train Dreams"]
   },
   {
     key: "best_director",
-    label: "Mejor direccion",
+    label: "Mejor dirección",
     candidates: ["Chloe Zhao (Hamnet)", "Josh Safdie (Marty Supreme)", "Paul Thomas Anderson (One Battle after Another)", "Joachim Trier (Sentimental Value)", "Ryan Coogler (Sinners)"]
-  },
-  {
-    key: "best_actress",
-    label: "Mejor actriz",
-    candidates: ["Jessie Buckley", "Rose Byrne", "Kate Hudson", "Renate Reinsve", "Emma Stone"]
   },
   {
     key: "best_actor",
@@ -61,9 +57,44 @@ const OSCAR_SURVEY = [
     candidates: ["Timothee Chalamet", "Leonardo DiCaprio", "Ethan Hawke", "Michael B. Jordan", "Wagner Moura"]
   },
   {
+    key: "best_actress",
+    label: "Mejor actriz",
+    candidates: ["Jessie Buckley", "Rose Byrne", "Kate Hudson", "Renate Reinsve", "Emma Stone"]
+  },
+  {
+    key: "best_supporting_actor",
+    label: "Mejor actor de reparto",
+    candidates: ["Jesse Plemons", "John Magaro", "Lakeith Stanfield", "Paul Mescal", "Stanley Tucci"]
+  },
+  {
+    key: "best_supporting_actress",
+    label: "Mejor actriz de reparto",
+    candidates: ["Ayo Edebiri", "Carey Mulligan", "Elle Fanning", "Rebecca Ferguson", "Sandra Huller"]
+  },
+  {
     key: "best_animated",
-    label: "Mejor pelicula animada",
+    label: "Mejor película animada",
     candidates: ["Arco", "Elio", "KPop Demon Hunters", "Little Amelie or the Character of Rain", "Zootopia 2"]
+  },
+  {
+    key: "best_original_screenplay",
+    label: "Mejor guión original",
+    candidates: ["Bugonia", "F1", "Marty Supreme", "Sentimental Value", "Sinners"]
+  },
+  {
+    key: "best_adapted_screenplay",
+    label: "Mejor guión adaptado",
+    candidates: ["Frankenstein", "Hamnet", "One Battle after Another", "The Secret Agent", "Train Dreams"]
+  },
+  {
+    key: "best_cinematography",
+    label: "Mejor fotografía",
+    candidates: ["F1", "Frankenstein", "One Battle after Another", "Sinners", "Train Dreams"]
+  },
+  {
+    key: "best_score",
+    label: "Mejor banda sonora",
+    candidates: ["Bugonia", "F1", "Hamnet", "Marty Supreme", "Sinners"]
   }
 ];
 
@@ -290,25 +321,44 @@ function computePredictionsRanking() {
 }
 
 function renderPredictions() {
+  const layout = document.getElementById("predictions-layout");
+  const formCard = document.getElementById("predictions-form-card");
   const formContainer = document.getElementById("predictions-form");
   const rankingContainer = document.getElementById("predictions-ranking");
-  if (!formContainer || !rankingContainer) return;
+  const saveButton = document.getElementById("save-predictions-btn");
+  const toggleEditButton = document.getElementById("toggle-predictions-edit-btn");
+  if (!layout || !formCard || !formContainer || !rankingContainer || !saveButton || !toggleEditButton) return;
 
   const answers = getCurrentUserPredictionAnswers();
-  formContainer.innerHTML = OSCAR_SURVEY.map((category) => {
-    const options = category.candidates.map((candidate) => {
-      const selected = answers[category.key] === candidate ? "selected" : "";
-      return `<option value="${escapeHtml(candidate)}" ${selected}>${escapeHtml(candidate)}</option>`;
+  const canEditPredictions = Boolean(isAdminFlag && uid && sharedDocRef);
+  const hasUserPrediction = Object.keys(answers).length > 0;
+  const showSurvey = canEditPredictions && isEditingPredictions;
+
+  toggleEditButton.classList.toggle("hidden", !canEditPredictions);
+  toggleEditButton.innerText = showSurvey ? "Cancelar" : (hasUserPrediction ? "Editar encuesta" : "Crear encuesta");
+  formCard.classList.toggle("hidden", !showSurvey);
+  saveButton.classList.toggle("hidden", !showSurvey);
+  layout.classList.toggle("lg:grid-cols-2", showSurvey);
+  layout.classList.toggle("lg:grid-cols-1", !showSurvey);
+
+  if (showSurvey) {
+    formContainer.innerHTML = OSCAR_SURVEY.map((category) => {
+      const options = category.candidates.map((candidate) => {
+        const selected = answers[category.key] === candidate ? "selected" : "";
+        return `<option value="${escapeHtml(candidate)}" ${selected}>${escapeHtml(candidate)}</option>`;
+      }).join("");
+      return `
+        <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-3">
+          <label class="block text-sm text-slate-300 mb-2">${escapeHtml(category.label)}</label>
+          <select data-prediction-key="${escapeHtml(category.key)}" class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-slate-100">
+            <option value="">Selecciona candidata</option>
+            ${options}
+          </select>
+        </div>`;
     }).join("");
-    return `
-      <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-3">
-        <label class="block text-sm text-slate-300 mb-2">${escapeHtml(category.label)}</label>
-        <select data-prediction-key="${escapeHtml(category.key)}" class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-slate-100">
-          <option value="">Selecciona candidata</option>
-          ${options}
-        </select>
-      </div>`;
-  }).join("");
+  } else {
+    formContainer.innerHTML = "";
+  }
 
   const { ranking, scoringEnabled } = computePredictionsRanking();
   if (!ranking.length) {
@@ -555,6 +605,12 @@ navPredictionsBtn.addEventListener("click", () => {
   closeNavbarMenu();
 });
 
+document.getElementById("toggle-predictions-edit-btn").onclick = () => {
+  if (!isAdminFlag || !uid || !sharedDocRef) return;
+  isEditingPredictions = !isEditingPredictions;
+  renderPredictions();
+};
+
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeNavbarMenu();
 });
@@ -583,6 +639,7 @@ document.getElementById("save-predictions-btn").onclick = async () => {
     photoURL: userProfile.photoURL || ""
   };
   await setDoc(sharedDocRef, { predictions: predictionsByUser }, { merge: true });
+  isEditingPredictions = false;
   renderPredictions();
   alert("Predicciones guardadas.");
 };
@@ -652,6 +709,7 @@ const onAuthStateChangedHandler = async (user) => {
   if (!user) {
     uid = null;
     isAdminFlag = false;
+    isEditingPredictions = false;
     predictionsByUser = {};
     predictionWinners = {};
     userProfile = { displayName: "Usuario", photoURL: DEFAULT_PROFILE_PHOTO };
@@ -687,10 +745,12 @@ const onAuthStateChangedHandler = async (user) => {
     heroContent.classList.add("hidden");
     navbarContent.classList.remove("hidden");
     closeNavbarMenu();
+    isEditingPredictions = false;
     showMainView("groups");
     init();
     initShared();
   } else {
+    isEditingPredictions = false;
     predictionsByUser = {};
     predictionWinners = {};
     loginPanel.classList.add("hidden");
