@@ -72,11 +72,6 @@ const OSCAR_SURVEY = [
     candidates: ["Ayo Edebiri", "Carey Mulligan", "Elle Fanning", "Rebecca Ferguson", "Sandra Huller"]
   },
   {
-    key: "best_animated",
-    label: "Mejor película animada",
-    candidates: ["Arco", "Elio", "KPop Demon Hunters", "Little Amelie or the Character of Rain", "Zootopia 2"]
-  },
-  {
     key: "best_original_screenplay",
     label: "Mejor guión original",
     candidates: ["Bugonia", "F1", "Marty Supreme", "Sentimental Value", "Sinners"]
@@ -85,6 +80,11 @@ const OSCAR_SURVEY = [
     key: "best_adapted_screenplay",
     label: "Mejor guión adaptado",
     candidates: ["Frankenstein", "Hamnet", "One Battle after Another", "The Secret Agent", "Train Dreams"]
+  },
+  {
+    key: "best_animated",
+    label: "Mejor película animada",
+    candidates: ["Arco", "Elio", "KPop Demon Hunters", "Little Amelie or the Character of Rain", "Zootopia 2"]
   },
   {
     key: "best_cinematography",
