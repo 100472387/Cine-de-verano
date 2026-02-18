@@ -43,123 +43,123 @@ const loadingProfileIds = new Set();
 const OSCAR_SURVEY = [
   {
     key: "best_picture",
-    label: "Mejor pelicula",
+    label: "Mejor película",
     candidates: ["Bugonia", "F1", "Frankenstein", "Hamnet", "Marty Supreme", "One Battle after Another", "The Secret Agent", "Sentimental Value", "Sinners", "Train Dreams"]
   },
   {
     key: "best_director",
-    label: "Mejor direccion",
+    label: "Mejor dirección",
     candidates: ["Chloe Zhao (Hamnet)", "Josh Safdie (Marty Supreme)", "Paul Thomas Anderson (One Battle after Another)", "Joachim Trier (Sentimental Value)", "Ryan Coogler (Sinners)"]
   },
   {
     key: "best_actor",
     label: "Mejor actor",
-    candidates: ["Timothee Chalamet", "Leonardo DiCaprio", "Ethan Hawke", "Michael B. Jordan", "Wagner Moura"]
+    candidates: ["Timothee Chalamet (Marty Supreme)", "Leonardo DiCaprio (One Battle after Another)", "Ethan Hawke (Blue Moon)", "Michael B. Jordan (Sinners)", "Wagner Moura (The Secret Agent)"]
   },
   {
     key: "best_actress",
     label: "Mejor actriz",
-    candidates: ["Jessie Buckley", "Rose Byrne", "Kate Hudson", "Renate Reinsve", "Emma Stone"]
+    candidates: ["Jessie Buckley (Hamnet)", "Rose Byrne (If I Had Legs I'd Kick You)", "Kate Hudson (Song Sung Blue)", "Renate Reinsve (Sentimental Value)", "Emma Stone (Bugonia)"]
   },
   {
     key: "best_supporting_actor",
     label: "Mejor actor de reparto",
-    candidates: ["Jesse Plemons", "John Magaro", "Lakeith Stanfield", "Paul Mescal", "Stanley Tucci"]
+    candidates: ["Benicio Del Toro (One Battle after Another)", "Jacob Elordi (Frankenstein)", "Delroy Lindo (Sinners)", "Sean Penn (One Battle after Another)", "Stellan Skarsgard (Sentimental Value)"]
   },
   {
     key: "best_supporting_actress",
     label: "Mejor actriz de reparto",
-    candidates: ["Ayo Edebiri", "Carey Mulligan", "Elle Fanning", "Rebecca Ferguson", "Sandra Huller"]
+    candidates: ["Elle Fanning (Sentimental Value)", "Inga Ibsdotter Lilleaas (Sentimental Value)", "Amy Madigan (Weapons)", "Wunmi Mosaku (Sinners)", "Teyana Taylor (One Battle after Another)"]
   },
   {
     key: "best_original_screenplay",
-    label: "Mejor guion original",
-    candidates: ["Bugonia", "F1", "Marty Supreme", "Sentimental Value", "Sinners"]
+    label: "Mejor guión original",
+    candidates: ["Blue Moon", "It Was Just an Accident", "Marty Supreme", "Sentimental Value", "Sinners"]
   },
   {
     key: "best_adapted_screenplay",
-    label: "Mejor guion adaptado",
-    candidates: ["Frankenstein", "Hamnet", "One Battle after Another", "The Secret Agent", "Train Dreams"]
-  },
-  {
-    key: "best_international_feature",
-    label: "Mejor pelicula internacional",
-    candidates: ["Emilia Perez", "I Am Still Here", "The Girl with the Needle", "The Seed of the Sacred Fig", "Vermiglio"]
+    label: "Mejor guión adaptado",
+    candidates: ["Bugonia", "Frankenstein", "Hamnet", "One Battle after Another", "Train Dreams"]
   },
   {
     key: "best_animated",
-    label: "Mejor pelicula animada",
+    label: "Mejor película animada",
     candidates: ["Arco", "Elio", "KPop Demon Hunters", "Little Amelie or the Character of Rain", "Zootopia 2"]
-  },
-  {
-    key: "best_documentary_feature",
-    label: "Mejor documental",
-    candidates: ["Black Box Diaries", "No Other Land", "Porcelain War", "Soundtrack to a Coup d'Etat", "Sugarcane"]
-  },
-  {
-    key: "best_documentary_short",
-    label: "Mejor corto documental",
-    candidates: ["Death by Numbers", "I Am Ready, Warden", "Incident", "Instruments of a Beating Heart", "The Only Girl in the Orchestra"]
-  },
-  {
-    key: "best_live_action_short",
-    label: "Mejor corto de accion real",
-    candidates: ["A Lien", "Anuja", "The Last Ranger", "The Man Who Could Not Remain Silent", "I'm Not a Robot"]
   },
   {
     key: "best_animated_short",
     label: "Mejor corto animado",
-    candidates: ["Beautiful Men", "In the Shadow of the Cypress", "Magic Candies", "Wander to Wonder", "Yuck!"]
-  },
-  {
-    key: "best_score",
-    label: "Mejor banda sonora",
-    candidates: ["Bugonia", "F1", "Hamnet", "Marty Supreme", "Sinners"]
-  },
-  {
-    key: "best_original_song",
-    label: "Mejor cancion original",
-    candidates: ["Beyond", "Compress/Repress", "El Mal", "Forbidden Road", "Never Too Late"]
-  },
-  {
-    key: "best_sound",
-    label: "Mejor sonido",
-    candidates: ["Dune: Part Two", "Emilia Perez", "Wicked", "The Wild Robot", "A Complete Unknown"]
-  },
-  {
-    key: "best_production_design",
-    label: "Mejor diseno de produccion",
-    candidates: ["Dune: Part Two", "Nosferatu", "Wicked", "Conclave", "The Brutalist"]
-  },
-  {
-    key: "best_cinematography",
-    label: "Mejor fotografia",
-    candidates: ["F1", "Frankenstein", "One Battle after Another", "Sinners", "Train Dreams"]
-  },
-  {
-    key: "best_makeup_hairstyling",
-    label: "Mejor maquillaje y peluqueria",
-    candidates: ["A Different Man", "Emilia Perez", "Nosferatu", "The Substance", "Wicked"]
-  },
-  {
-    key: "best_costume_design",
-    label: "Mejor diseno de vestuario",
-    candidates: ["Conclave", "Gladiator II", "Nosferatu", "Wicked", "A Complete Unknown"]
-  },
-  {
-    key: "best_film_editing",
-    label: "Mejor montaje",
-    candidates: ["Anora", "Conclave", "Dune: Part Two", "Emilia Perez", "Wicked"]
-  },
-  {
-    key: "best_visual_effects",
-    label: "Mejores efectos visuales",
-    candidates: ["Alien: Romulus", "Dune: Part Two", "Kingdom of the Planet of the Apes", "Better Man", "Wicked"]
+    candidates: ["Butterfly", "Forevergreen", "The Girl Who Cried Pearls", "Retirement Plan", "The Three Sisters"]
   },
   {
     key: "best_casting",
     label: "Mejor reparto de casting",
-    candidates: ["Anora", "A Complete Unknown", "Conclave", "Emilia Perez", "Wicked"]
+    candidates: ["Hamnet", "Marty Supreme", "One Battle after Another", "The Secret Agent", "Sinners"]
+  },
+  {
+    key: "best_cinematography",
+    label: "Mejor fotografía",
+    candidates: ["Frankenstein", "Marty Supreme", "One Battle after Another", "Sinners", "Train Dreams"]
+  },
+  {
+    key: "best_costume_design",
+    label: "Mejor diseño de vestuario",
+    candidates: ["Avatar: Fire and Ash", "Frankenstein", "Hamnet", "Marty Supreme", "Sinners"]
+  },
+  {
+    key: "best_documentary_feature",
+    label: "Mejor documental",
+    candidates: ["The Alabama Solution", "Come See Me in the Good Light", "Cutting through Rocks", "Mr. Nobody against Putin", "The Perfect Neighbor"]
+  },
+  {
+    key: "best_documentary_short",
+    label: "Mejor corto documental",
+    candidates: ["All the Empty Rooms", "Armed Only with a Camera: The Life and Death of Brent Renaud", "Children No More: \"Were and Are Gone\"", "The Devil Is Busy", "Perfectly a Strangeness"]
+  },
+  {
+    key: "best_film_editing",
+    label: "Mejor montaje",
+    candidates: ["F1", "Marty Supreme", "One Battle after Another", "Sentimental Value", "Sinners"]
+  },
+  {
+    key: "best_international_feature",
+    label: "Mejor película internacional",
+    candidates: ["The Secret Agent (Brazil)", "It Was Just an Accident (France)", "Sentimental Value (Norway)", "Sirat (Spain)", "The Voice of Hind Rajab (Tunisia)"]
+  },
+  {
+    key: "best_live_action_short",
+    label: "Mejor corto de acción real",
+    candidates: ["Butcher's Stain", "A Friend of Dorothy", "Jane Austen's Period Drama", "The Singers", "Two People Exchanging Saliva"]
+  },
+  {
+    key: "best_makeup_hairstyling",
+    label: "Mejor maquillaje y peluquería",
+    candidates: ["Frankenstein", "Kokuho", "Sinners", "The Smashing Machine", "The Ugly Stepsister"]
+  },
+  {
+    key: "best_score",
+    label: "Mejor banda sonora",
+    candidates: ["Bugonia", "Frankenstein", "Hamnet", "One Battle after Another", "Sinners"]
+  },
+  {
+    key: "best_original_song",
+    label: "Mejor canción original",
+    candidates: ["Dear Me", "Golden", "I Lied To You", "Sweet Dreams Of Joy", "Train Dreams"]
+  },
+  {
+    key: "best_production_design",
+    label: "Mejor diseño de producción",
+    candidates: ["Frankenstein", "Hamnet", "Marty Supreme", "One Battle after Another", "Sinners"]
+  },
+  {
+    key: "best_sound",
+    label: "Mejor sonido",
+    candidates: ["F1", "Frankenstein", "One Battle after Another", "Sinners", "Sirat"]
+  },
+  {
+    key: "best_visual_effects",
+    label: "Mejores efectos visuales",
+    candidates: ["Avatar: Fire and Ash", "F1", "Jurassic World Rebirth", "The Lost Bus", "Sinners"]
   }
 ];
 
@@ -1110,4 +1110,5 @@ document.getElementById('reset-randomizer').onclick = () => {
     .forEach(el => el.classList.remove('winner', 'highlight'));
   document.getElementById('randomizer-result-box').classList.add('hidden');
 };
+
 
