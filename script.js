@@ -1,4 +1,4 @@
-/* ========== IMPORTS FIREBASE ========== */
+﻿/* ========== IMPORTS FIREBASE ========== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -15,7 +15,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 setPersistence(auth, browserSessionPersistence).catch((err) => {
-  console.error("No se pudo fijar persistencia de sesión", err);
+  console.error("No se pudo fijar persistencia de sesiÃ³n", err);
 });
 
 /* ========== ESTADO GLOBAL ========== */
@@ -43,12 +43,12 @@ const loadingProfileIds = new Set();
 const OSCAR_SURVEY = [
   {
     key: "best_picture",
-    label: "Mejor película",
+    label: "Mejor pelicula",
     candidates: ["Bugonia", "F1", "Frankenstein", "Hamnet", "Marty Supreme", "One Battle after Another", "The Secret Agent", "Sentimental Value", "Sinners", "Train Dreams"]
   },
   {
     key: "best_director",
-    label: "Mejor dirección",
+    label: "Mejor direccion",
     candidates: ["Chloe Zhao (Hamnet)", "Josh Safdie (Marty Supreme)", "Paul Thomas Anderson (One Battle after Another)", "Joachim Trier (Sentimental Value)", "Ryan Coogler (Sinners)"]
   },
   {
@@ -73,28 +73,93 @@ const OSCAR_SURVEY = [
   },
   {
     key: "best_original_screenplay",
-    label: "Mejor guión original",
+    label: "Mejor guion original",
     candidates: ["Bugonia", "F1", "Marty Supreme", "Sentimental Value", "Sinners"]
   },
   {
     key: "best_adapted_screenplay",
-    label: "Mejor guión adaptado",
+    label: "Mejor guion adaptado",
     candidates: ["Frankenstein", "Hamnet", "One Battle after Another", "The Secret Agent", "Train Dreams"]
   },
   {
+    key: "best_international_feature",
+    label: "Mejor pelicula internacional",
+    candidates: ["Emilia Perez", "I Am Still Here", "The Girl with the Needle", "The Seed of the Sacred Fig", "Vermiglio"]
+  },
+  {
     key: "best_animated",
-    label: "Mejor película animada",
+    label: "Mejor pelicula animada",
     candidates: ["Arco", "Elio", "KPop Demon Hunters", "Little Amelie or the Character of Rain", "Zootopia 2"]
   },
   {
-    key: "best_cinematography",
-    label: "Mejor fotografía",
-    candidates: ["F1", "Frankenstein", "One Battle after Another", "Sinners", "Train Dreams"]
+    key: "best_documentary_feature",
+    label: "Mejor documental",
+    candidates: ["Black Box Diaries", "No Other Land", "Porcelain War", "Soundtrack to a Coup d'Etat", "Sugarcane"]
+  },
+  {
+    key: "best_documentary_short",
+    label: "Mejor corto documental",
+    candidates: ["Death by Numbers", "I Am Ready, Warden", "Incident", "Instruments of a Beating Heart", "The Only Girl in the Orchestra"]
+  },
+  {
+    key: "best_live_action_short",
+    label: "Mejor corto de accion real",
+    candidates: ["A Lien", "Anuja", "The Last Ranger", "The Man Who Could Not Remain Silent", "I'm Not a Robot"]
+  },
+  {
+    key: "best_animated_short",
+    label: "Mejor corto animado",
+    candidates: ["Beautiful Men", "In the Shadow of the Cypress", "Magic Candies", "Wander to Wonder", "Yuck!"]
   },
   {
     key: "best_score",
     label: "Mejor banda sonora",
     candidates: ["Bugonia", "F1", "Hamnet", "Marty Supreme", "Sinners"]
+  },
+  {
+    key: "best_original_song",
+    label: "Mejor cancion original",
+    candidates: ["Beyond", "Compress/Repress", "El Mal", "Forbidden Road", "Never Too Late"]
+  },
+  {
+    key: "best_sound",
+    label: "Mejor sonido",
+    candidates: ["Dune: Part Two", "Emilia Perez", "Wicked", "The Wild Robot", "A Complete Unknown"]
+  },
+  {
+    key: "best_production_design",
+    label: "Mejor diseno de produccion",
+    candidates: ["Dune: Part Two", "Nosferatu", "Wicked", "Conclave", "The Brutalist"]
+  },
+  {
+    key: "best_cinematography",
+    label: "Mejor fotografia",
+    candidates: ["F1", "Frankenstein", "One Battle after Another", "Sinners", "Train Dreams"]
+  },
+  {
+    key: "best_makeup_hairstyling",
+    label: "Mejor maquillaje y peluqueria",
+    candidates: ["A Different Man", "Emilia Perez", "Nosferatu", "The Substance", "Wicked"]
+  },
+  {
+    key: "best_costume_design",
+    label: "Mejor diseno de vestuario",
+    candidates: ["Conclave", "Gladiator II", "Nosferatu", "Wicked", "A Complete Unknown"]
+  },
+  {
+    key: "best_film_editing",
+    label: "Mejor montaje",
+    candidates: ["Anora", "Conclave", "Dune: Part Two", "Emilia Perez", "Wicked"]
+  },
+  {
+    key: "best_visual_effects",
+    label: "Mejores efectos visuales",
+    candidates: ["Alien: Romulus", "Dune: Part Two", "Kingdom of the Planet of the Apes", "Better Man", "Wicked"]
+  },
+  {
+    key: "best_casting",
+    label: "Mejor reparto de casting",
+    candidates: ["Anora", "A Complete Unknown", "Conclave", "Emilia Perez", "Wicked"]
   }
 ];
 
@@ -462,7 +527,7 @@ document.getElementById("admin-login-btn").onclick = async () => {
   const email = normalizeEmail(document.getElementById("admin-email").value);
   const password = document.getElementById("admin-password").value || "";
   if (!isValidEmail(email) || !isValidPassword(password)) {
-    alert("Revisa el formato del email y la contraseña (mínimo 8 caracteres).");
+    alert("Revisa el formato del email y la contraseÃ±a (mÃ­nimo 8 caracteres).");
     return;
   }
   await runWithDisabledButton("admin-login-btn", async () => {
@@ -472,14 +537,14 @@ document.getElementById("admin-login-btn").onclick = async () => {
     } catch (err) {
       console.error("Error login:", err?.code || err);
       registerAuthFailure();
-      alert("No se pudo iniciar sesión. Revisa tus credenciales.");
+      alert("No se pudo iniciar sesiÃ³n. Revisa tus credenciales.");
     }
   });
 };
 
 document.getElementById("admin-logout-btn").onclick = async () => {
   await signOut(auth);
-  alert("Sesión cerrada");
+  alert("SesiÃ³n cerrada");
 };
 
 document.getElementById("show-register-btn").onclick = () => {
@@ -500,11 +565,11 @@ document.getElementById("register-btn").onclick = async () => {
   const email = normalizeEmail(document.getElementById("register-email").value);
   const password = document.getElementById("register-password").value || "";
   if (!isValidEmail(email)) {
-    alert("El email no tiene un formato válido.");
+    alert("El email no tiene un formato vÃ¡lido.");
     return;
   }
   if (!isValidPassword(password)) {
-    alert("La contraseña debe tener entre 8 y 128 caracteres.");
+    alert("La contraseÃ±a debe tener entre 8 y 128 caracteres.");
     return;
   }
   await runWithDisabledButton("register-btn", async () => {
@@ -772,10 +837,10 @@ onAuthStateChanged(auth, onAuthStateChangedHandler);
 window.deleteCategory = async (index, e) => {
   e.stopPropagation();
   if (normalizeLabel(schedule[index]?.label) === normalizeLabel(SHARED_CATEGORY_LABEL)) {
-    alert("No se puede eliminar la categoría compartida.");
+    alert("No se puede eliminar la categorÃ­a compartida.");
     return;
   }
-  if (!confirm("¿Eliminar esta categoría y todas sus películas?")) return;
+  if (!confirm("Â¿Eliminar esta categorÃ­a y todas sus pelÃ­culas?")) return;
   schedule.splice(index, 1);
   if (currentDay >= schedule.length) currentDay = Math.max(0, schedule.length - 1);
   await setDoc(docRef, { list: schedule }, { merge: true });
@@ -783,7 +848,7 @@ window.deleteCategory = async (index, e) => {
 
 window.deleteMovie = async (movieIndex, e) => {
   e.stopPropagation();
-  if (!confirm("¿Eliminar esta película?")) return;
+  if (!confirm("Â¿Eliminar esta pelÃ­cula?")) return;
   const day = schedule[currentDay];
   const isShared = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
   if (isShared) {
@@ -824,7 +889,7 @@ function render() {
     dropdownList.innerHTML += `<div class="border-t border-slate-700 my-1"></div>`;
   }
 
-  dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Días / Cartelera</div>`;
+  dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">DÃ­as / Cartelera</div>`;
 
   schedule.forEach((d, i) => {
     const isShared = normalizeLabel(d.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
@@ -940,7 +1005,7 @@ document.getElementById("add-category-btn").onclick = async () => {
   const label = document.getElementById("new-category-label").value;
   if (!label) return;
   if (normalizeLabel(label) === normalizeLabel(SHARED_CATEGORY_LABEL)) {
-    alert("Esa categoría ya está compartida para todos los grupos.");
+    alert("Esa categorÃ­a ya estÃ¡ compartida para todos los grupos.");
     return;
   }
   schedule.push({ label, movies: [] });
@@ -978,7 +1043,7 @@ function openRandomizer() {
   const isSharedNoPoster = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
   const activeMovies = isSharedNoPoster ? sharedMovies : (day && day.movies ? day.movies : []);
   if (!day || activeMovies.length < 2) {
-    alert("Añade al menos 2 películas");
+    alert("AÃ±ade al menos 2 pelÃ­culas");
     return;
   }
 
@@ -1045,3 +1110,4 @@ document.getElementById('reset-randomizer').onclick = () => {
     .forEach(el => el.classList.remove('winner', 'highlight'));
   document.getElementById('randomizer-result-box').classList.add('hidden');
 };
+
