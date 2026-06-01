@@ -1,7 +1,7 @@
 ﻿/* ========== IMPORTS FIREBASE ========== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, addDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /* ========== FIREBASE CONFIG ========== */
 const firebaseConfig = {
@@ -33,11 +33,18 @@ let unsubscribeShared = null;
 const SHARED_CATEGORY_LABEL = "Mejoras Web";
 const SHARED_DOC_ID = "__shared_mejoras_web";
 const DEFAULT_PROFILE_PHOTO = "https://ui-avatars.com/api/?background=334155&color=f8fafc&size=128&name=CV";
+const MAX_CATEGORY_LABEL_LENGTH = 60;
+const MAX_MOVIE_TITLE_LENGTH = 120;
+const MAX_MOVIE_DETAILS_LENGTH = 80;
+const MAX_RECOMMENDATION_NOTE_LENGTH = 240;
 let userProfile = { displayName: "Usuario", photoURL: DEFAULT_PROFILE_PHOTO };
 let currentMainView = "groups";
 let predictionsByUser = {};
 let predictionWinners = {};
 let isEditingPredictions = false;
+let adminUserIds = [];
+let recommendations = [];
+let unsubscribeRecommendations = null;
 const profileCache = {};
 const loadingProfileIds = new Set();
 const OSCAR_SURVEY = [
@@ -169,10 +176,14 @@ function normalizeLabel(label) {
 }
 
 function ensureSharedCategory(list) {
-  const safeList = Array.isArray(list) ? list : [];
-  const exists = safeList.some(d => normalizeLabel(d.label) === normalizeLabel(SHARED_CATEGORY_LABEL));
-  if (exists) return { list: safeList, changed: false };
-  return { list: [...safeList, { label: SHARED_CATEGORY_LABEL, movies: [] }], changed: true };
+  return {
+    list: Array.isArray(list)
+      ? list.filter(d =>
+          normalizeLabel(d.label) !== normalizeLabel(SHARED_CATEGORY_LABEL)
+        )
+      : [],
+    changed: false
+  };
 }
 
 async function getUserGroups(uid) {
@@ -227,6 +238,10 @@ function isValidEmail(email) {
 
 function isValidPassword(password) {
   return typeof password === "string" && password.length >= 8 && password.length <= 128;
+}
+
+function truncateClean(value, maxLength) {
+  return String(value || "").trim().slice(0, maxLength);
 }
 
 const authGuard = {
@@ -322,6 +337,22 @@ function normalizePredictionWinners(rawData) {
   return normalized;
 }
 
+function normalizeRecommendationData(data, fallbackId = "") {
+  if (!data || typeof data !== "object") return null;
+  const fromUid = typeof data.fromUid === "string" ? data.fromUid : fallbackId;
+  const title = truncateClean(data.title, MAX_MOVIE_TITLE_LENGTH);
+  const note = truncateClean(data.note, MAX_RECOMMENDATION_NOTE_LENGTH);
+  if (!fromUid || !title) return null;
+  return {
+    fromUid,
+    title,
+    note,
+    createdAt: Number(data.createdAt) || 0,
+    displayName: typeof data.displayName === "string" ? data.displayName.slice(0, 40) : "",
+    photoURL: sanitizeHttpUrl(data.photoURL || "", "")
+  };
+}
+
 function hasPublishedWinners() {
   return OSCAR_SURVEY.every((category) => typeof predictionWinners[category.key] === "string");
 }
@@ -341,9 +372,23 @@ async function fetchProfilesToCache(userIds) {
       loadingProfileIds.delete(id);
     });
     renderPredictions();
+    renderRecommendations();
   } catch (err) {
     console.error("No se pudieron cargar perfiles para el ranking", err);
     pending.forEach((id) => loadingProfileIds.delete(id));
+  }
+}
+
+async function loadAdminUsers() {
+  try {
+    const snap = await getDocs(collection(db, "admins"));
+    adminUserIds = snap.docs.map((adminDoc) => adminDoc.id).filter(Boolean);
+    await fetchProfilesToCache(adminUserIds);
+    renderRecommendations();
+  } catch (err) {
+    console.error("No se pudieron cargar usuarios para recomendaciones", err);
+    adminUserIds = [];
+    renderRecommendations();
   }
 }
 
@@ -460,25 +505,147 @@ function renderPredictions() {
   if (unknownUsers.length) fetchProfilesToCache(unknownUsers);
 }
 
+function getProfileForUser(userId) {
+  if (userId === uid) return userProfile;
+  return profileCache[userId] || null;
+}
+
+function renderWebImprovements() {
+  const grid = document.getElementById("web-movies-grid");
+  if (!grid) return;
+
+  grid.innerHTML = "";
+
+  const sortedMovies = [...sharedMovies].sort((a, b) => {
+    const votesA = a.votes ? Object.keys(a.votes).length : 0;
+    const votesB = b.votes ? Object.keys(b.votes).length : 0;
+
+    if (votesA !== votesB) return votesB - votesA;
+
+    const ratingA = a.rating ? parseFloat(a.rating) : 0;
+    const ratingB = b.rating ? parseFloat(b.rating) : 0;
+    return ratingB - ratingA;
+  });
+
+  sortedMovies.forEach((m, i) => {
+    const realIndex = sharedMovies.indexOf(m);
+    const votes = m.votes ? Object.keys(m.votes).length : 0;
+    const voted = uid && m.votes && m.votes[uid];
+    const isTime = /^[\d:.]+$/.test(m.time);
+    const extraClass = isTime ? "" : "text-custom";
+    const safeTitle = escapeHtml(m.title || "");
+    const safeTime = escapeHtml(m.time || "");
+    const imdbSearchUrl = escapeHtml(`https://www.imdb.com/find?q=${encodeURIComponent(m.title || "")}`);
+    const parsedRating = Number.parseFloat(m.rating);
+    const safeRating = Number.isFinite(parsedRating) ? parsedRating.toFixed(1) : null;
+
+    grid.innerHTML += `
+      <div class="relative bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-row md:flex-col items-center md:items-stretch shadow-xl transition-transform hover:scale-[1.01]">
+        ${isAdminFlag ? `<button onclick="deleteMovie(${realIndex}, event)" class="absolute top-2 right-2 z-20 text-slate-500 hover:text-red-500 p-1"><i class="fas fa-times"></i></button>` : ''}
+        
+        <div class="p-4 flex-1 w-full">
+          <span class="time-badge ${extraClass} bg-yellow-500 text-black rounded uppercase">${safeTime}</span>
+          
+          <h3 class="text-xl font-bold mt-2 leading-tight">
+            <a href="${imdbSearchUrl}" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors">
+              ${safeTitle}
+            </a>
+          </h3>
+
+          ${safeRating ? `<div class="text-yellow-400 font-bold mt-1 flex items-center gap-1 text-sm"><i class="fas fa-star"></i> IMDb ${safeRating}/10</div>` : ""}
+          
+          <button onclick="toggleVoteWeb(${realIndex})" class="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${voted ? "bg-green-600" : "bg-slate-700 hover:bg-slate-600"}">
+            <i class="fas fa-thumbs-up"></i>
+            <span>${votes}</span>
+          </button>
+        </div>
+      </div>`;
+  });
+}
+
+function renderRecommendations() {
+  const recipientSelect = document.getElementById("recommendation-recipient-select");
+  const list = document.getElementById("recommendations-list");
+  if (!recipientSelect || !list) return;
+
+  const recipients = adminUserIds.filter((userId) => userId !== uid);
+  recipientSelect.innerHTML = recipients.length
+    ? recipients.map((userId) => {
+      const profile = getProfileForUser(userId);
+      const label = profile ? profile.displayName : `Usuario ${userId.slice(0, 6)}`;
+      return `<option value="${escapeHtml(userId)}">${escapeHtml(label)}</option>`;
+    }).join("")
+    : `<option value="">No hay otros usuarios</option>`;
+
+  if (!recommendations.length) {
+    list.innerHTML = `<div class="text-slate-400 text-sm bg-slate-800/80 border border-slate-700 rounded-xl p-4">Todavia no tienes recomendaciones.</div>`;
+    return;
+  }
+
+  const sorted = [...recommendations].sort((a, b) => b.createdAt - a.createdAt);
+  list.innerHTML = sorted.map((rec) => {
+    const profile = getProfileForUser(rec.fromUid);
+    const displayName = rec.displayName || (profile ? profile.displayName : `Usuario ${rec.fromUid.slice(0, 6)}`);
+    const photoURL = normalizePhotoURL(rec.photoURL || (profile ? profile.photoURL : ""), displayName);
+    return `
+      <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-4">
+        <div class="flex items-center gap-3 mb-3">
+          <img src="${escapeHtml(photoURL)}" alt="Foto" class="w-10 h-10 rounded-full object-cover border border-slate-600 bg-slate-700">
+          <div class="min-w-0">
+            <div class="text-xs text-slate-400">Recomendada por</div>
+            <div class="font-semibold text-slate-100 truncate">${escapeHtml(displayName)}</div>
+          </div>
+        </div>
+        <div class="text-lg font-bold text-yellow-400">${escapeHtml(rec.title)}</div>
+        ${rec.note ? `<p class="text-sm text-slate-300 mt-2 whitespace-pre-wrap">${escapeHtml(rec.note)}</p>` : ""}
+      </div>`;
+  }).join("");
+}
+
 function showMainView(viewName) {
-  currentMainView = ["groups", "profile", "predictions"].includes(viewName) ? viewName : "groups";
+  currentMainView = ["groups", "profile", "predictions", "recommendations", "web"].includes(viewName) ? viewName : "groups";
   const groupsView = document.getElementById("groups-view");
   const profileView = document.getElementById("profile-view");
   const predictionsView = document.getElementById("predictions-view");
-  if (!groupsView || !profileView || !predictionsView) return;
+  const recommendationsView = document.getElementById("recommendations-view");
+  const webView = document.getElementById("web-view");
+  if (!groupsView || !profileView || !predictionsView || !recommendationsView) return;
 
   if (currentMainView === "profile") {
     groupsView.classList.add("hidden");
     profileView.classList.remove("hidden");
     predictionsView.classList.add("hidden");
+    recommendationsView.classList.add("hidden");
+    webView.classList.add("hidden");
   } else if (currentMainView === "predictions") {
     groupsView.classList.add("hidden");
     profileView.classList.add("hidden");
     predictionsView.classList.remove("hidden");
+    recommendationsView.classList.add("hidden");
+    webView.classList.add("hidden");
     renderPredictions();
+  } else if (currentMainView === "recommendations") {
+    groupsView.classList.add("hidden");
+    profileView.classList.add("hidden");
+    predictionsView.classList.add("hidden");
+    recommendationsView.classList.remove("hidden");
+    webView.classList.add("hidden");
+    renderRecommendations();
+
+  } else if (currentMainView === "web") {
+    groupsView.classList.add("hidden");
+    profileView.classList.add("hidden");
+    predictionsView.classList.add("hidden");
+    recommendationsView.classList.add("hidden");
+    webView.classList.remove("hidden");
+
+    renderWebImprovements();
+
   } else {
     profileView.classList.add("hidden");
     predictionsView.classList.add("hidden");
+    recommendationsView.classList.add("hidden");
+    webView.classList.add("hidden");
     groupsView.classList.remove("hidden");
   }
   updateNavbarViewState();
@@ -598,8 +765,12 @@ document.getElementById("save-profile-btn").onclick = async () => {
   if (!uid) return;
   const typedName = document.getElementById("profile-name-input").value.trim();
   const typedPhoto = document.getElementById("profile-photo-input").value.trim();
-  const displayName = (typedName || "Usuario").slice(0, 40);
-  const photoURL = typedPhoto;
+  const displayName = truncateClean(typedName || "Usuario", 40);
+  const photoURL = typedPhoto ? sanitizeHttpUrl(typedPhoto, "") : "";
+  if (typedPhoto && !photoURL) {
+    alert("La foto debe ser una URL http o https valida.");
+    return;
+  }
 
   await setDoc(doc(db, "profiles", uid), { displayName, photoURL }, { merge: true });
   userProfile = normalizeProfileData({ displayName, photoURL }, displayName);
@@ -616,12 +787,15 @@ const navbarMenuCloseBtn = document.getElementById("navbar-menu-close-btn");
 const navGroupsBtn = document.getElementById("nav-groups-btn");
 const navProfileBtn = document.getElementById("nav-profile-btn");
 const navPredictionsBtn = document.getElementById("nav-predictions-btn");
+const navRecommendationsBtn = document.getElementById("nav-recommendations-btn");
+const navWebBtn = document.getElementById("nav-web-btn");
 
 function updateNavbarViewState() {
   const viewByButton = [
     [navGroupsBtn, "groups"],
     [navProfileBtn, "profile"],
-    [navPredictionsBtn, "predictions"]
+    [navPredictionsBtn, "predictions"],
+    [navRecommendationsBtn, "recommendations"]
   ];
   viewByButton.forEach(([button, viewName]) => {
     if (!button) return;
@@ -670,6 +844,16 @@ navPredictionsBtn.addEventListener("click", () => {
   closeNavbarMenu();
 });
 
+navRecommendationsBtn.addEventListener("click", () => {
+  showMainView("recommendations");
+  closeNavbarMenu();
+});
+
+navWebBtn.addEventListener("click", () => {
+  showMainView("web");
+  closeNavbarMenu();
+});
+
 document.getElementById("toggle-predictions-edit-btn").onclick = () => {
   if (!isAdminFlag || !uid || !sharedDocRef) return;
   isEditingPredictions = !isEditingPredictions;
@@ -707,6 +891,34 @@ document.getElementById("save-predictions-btn").onclick = async () => {
   isEditingPredictions = false;
   renderPredictions();
   alert("Predicciones guardadas.");
+};
+
+document.getElementById("save-recommendation-btn").onclick = async () => {
+  if (!isAdminFlag || !uid) return;
+  const recipientId = document.getElementById("recommendation-recipient-select").value;
+  const title = truncateClean(document.getElementById("recommendation-title-input").value, MAX_MOVIE_TITLE_LENGTH);
+  const note = truncateClean(document.getElementById("recommendation-note-input").value, MAX_RECOMMENDATION_NOTE_LENGTH);
+  if (!recipientId || recipientId === uid || !adminUserIds.includes(recipientId)) {
+    alert("Elige una persona valida.");
+    return;
+  }
+  if (!title) {
+    alert("Escribe el titulo de la pelicula.");
+    return;
+  }
+
+  await addDoc(collection(db, "recommendations", recipientId, "items"), {
+    fromUid: uid,
+    title,
+    note,
+    createdAt: Date.now(),
+    displayName: userProfile.displayName || "Usuario",
+    photoURL: userProfile.photoURL || ""
+  });
+
+  document.getElementById("recommendation-title-input").value = "";
+  document.getElementById("recommendation-note-input").value = "";
+  alert("Recomendacion enviada.");
 };
 
 
@@ -759,6 +971,23 @@ function initShared() {
   });
 }
 
+function initRecommendations() {
+  if (!uid) return;
+  if (unsubscribeRecommendations) unsubscribeRecommendations();
+  unsubscribeRecommendations = onSnapshot(collection(db, "recommendations", uid, "items"), snap => {
+    recommendations = snap.docs
+      .map((recommendationDoc) => normalizeRecommendationData(recommendationDoc.data(), recommendationDoc.id))
+      .filter(Boolean);
+    const unknownUsers = recommendations.map((rec) => rec.fromUid).filter((userId) => !profileCache[userId]);
+    if (unknownUsers.length) fetchProfilesToCache(unknownUsers);
+    renderRecommendations();
+  }, err => {
+    console.error("No se pudieron cargar recomendaciones", err);
+    recommendations = [];
+    renderRecommendations();
+  });
+}
+
 /* ========== AUTH STATE CHANGES ========= */
 const onAuthStateChangedHandler = async (user) => {
   const loginPanel = document.getElementById("admin-login-panel");
@@ -772,11 +1001,16 @@ const onAuthStateChangedHandler = async (user) => {
   const navbarContent = document.getElementById("navbar-content");
 
   if (!user) {
+    if (unsubscribeSchedule) unsubscribeSchedule();
+    if (unsubscribeShared) unsubscribeShared();
+    if (unsubscribeRecommendations) unsubscribeRecommendations();
     uid = null;
     isAdminFlag = false;
     isEditingPredictions = false;
     predictionsByUser = {};
     predictionWinners = {};
+    adminUserIds = [];
+    recommendations = [];
     userProfile = { displayName: "Usuario", photoURL: DEFAULT_PROFILE_PHOTO };
     loginPanel.classList.remove("hidden");
     registerPanel.classList.add("hidden");
@@ -814,10 +1048,14 @@ const onAuthStateChangedHandler = async (user) => {
     showMainView("groups");
     init();
     initShared();
+    loadAdminUsers();
+    initRecommendations();
   } else {
     isEditingPredictions = false;
     predictionsByUser = {};
     predictionWinners = {};
+    adminUserIds = [];
+    recommendations = [];
     loginPanel.classList.add("hidden");
     registerPanel.classList.add("hidden");
     mainContent.classList.add("hidden");
@@ -983,6 +1221,24 @@ window.addEventListener('click', (e) => {
   }
 });
 
+window.toggleVoteWeb = async (m) => {
+  if (!isAdminFlag || !uid) {
+    alert("Solo los administradores pueden votar.");
+    return;
+  }
+
+  const movie = sharedMovies[m];
+  if (!movie) return;
+
+  if (!movie.votes) movie.votes = {};
+
+  if (movie.votes[uid]) delete movie.votes[uid];
+  else movie.votes[uid] = true;
+
+  await setDoc(sharedDocRef, { movies: sharedMovies }, { merge: true });
+  renderWebImprovements();
+};
+
 window.toggleVote = async (d,m) => {
   if (!isAdminFlag || !uid) { alert("Solo los administradores pueden votar."); return; }
   const day = schedule[d];
@@ -1002,7 +1258,7 @@ window.toggleVote = async (d,m) => {
 
 document.getElementById("add-category-btn").onclick = async () => {
   if (!isAdminFlag) return;
-  const label = document.getElementById("new-category-label").value;
+  const label = truncateClean(document.getElementById("new-category-label").value, MAX_CATEGORY_LABEL_LENGTH);
   if (!label) return;
   if (normalizeLabel(label) === normalizeLabel(SHARED_CATEGORY_LABEL)) {
     alert("Esa categorÃ­a ya estÃ¡ compartida para todos los grupos.");
@@ -1015,10 +1271,11 @@ document.getElementById("add-category-btn").onclick = async () => {
 
 document.getElementById("add-movie-btn").onclick = async () => {
   if (!isAdminFlag) return;
-  const d = document.getElementById("movie-day-select").value;
-  const t = document.getElementById("new-movie-title").value;
-  const h = document.getElementById("new-movie-details").value;
+  const d = Number.parseInt(document.getElementById("movie-day-select").value, 10);
+  const t = truncateClean(document.getElementById("new-movie-title").value, MAX_MOVIE_TITLE_LENGTH);
+  const h = truncateClean(document.getElementById("new-movie-details").value, MAX_MOVIE_DETAILS_LENGTH);
   if (!t || !h) return;
+  if (!Number.isInteger(d) || d < 0 || d >= schedule.length) return;
   const data = await fetchMovieData(t);
   const day = schedule[d];
   const isShared = day && normalizeLabel(day.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
