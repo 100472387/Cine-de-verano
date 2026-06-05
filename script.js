@@ -1,22 +1,8 @@
-﻿/* ========== IMPORTS FIREBASE ========== */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, addDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+﻿import { auth, db } from "./firebase-config.js";
+import { normalizeLabel, escapeHtml, sanitizeHttpUrl, normalizeEmail, isValidEmail, isValidPassword, truncateClean, runWithDisabledButton, generarComposicion3x2 } from "./utils.js";
 
-/* ========== FIREBASE CONFIG ========== */
-const firebaseConfig = {
-  apiKey: "AIzaSyDRztedy1U_erKHDY94KlUkxcZNwQcDUZw",
-  authDomain: "cine-verano.firebaseapp.com",
-  projectId: "cine-verano",
-  appId: "1:725171854528:web:a7ca7cd58ee3e024226125"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-setPersistence(auth, browserSessionPersistence).catch((err) => {
-  console.error("No se pudo fijar persistencia de sesiÃ³n", err);
-});
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { doc, onSnapshot, setDoc, getDoc, collection, getDocs, addDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /* ========== ESTADO GLOBAL ========== */
 let schedule = [];
@@ -171,10 +157,6 @@ const OSCAR_SURVEY = [
 ];
 
 /* ========== FUNCIONES AUX ========== */
-function normalizeLabel(label) {
-  return (label || "").trim().toLowerCase();
-}
-
 function ensureSharedCategory(list) {
   return {
     list: Array.isArray(list)
@@ -202,46 +184,9 @@ async function isAdminByGroup(uid) {
   return false;
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 function getDefaultDisplayName(user) {
   const byEmail = user && user.email ? user.email.split("@")[0] : "";
   return (byEmail || "Usuario").trim().slice(0, 40);
-}
-
-function sanitizeHttpUrl(url, fallback = "") {
-  if (!url || typeof url !== "string") return fallback;
-  try {
-    const parsed = new URL(url.trim(), window.location.origin);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.href;
-  } catch (e) {
-    return fallback;
-  }
-  return fallback;
-}
-
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
-}
-
-function isValidEmail(email) {
-  const normalized = normalizeEmail(email);
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
-}
-
-function isValidPassword(password) {
-  return typeof password === "string" && password.length >= 8 && password.length <= 128;
-}
-
-function truncateClean(value, maxLength) {
-  return String(value || "").trim().slice(0, maxLength);
 }
 
 const authGuard = {
@@ -269,23 +214,6 @@ function registerAuthFailure() {
 function clearAuthFailures() {
   authGuard.failures = 0;
   authGuard.lockedUntil = 0;
-}
-
-async function runWithDisabledButton(buttonId, fn) {
-  const button = document.getElementById(buttonId);
-  if (!button) return fn();
-  const previousDisabled = button.disabled;
-  const previousText = button.innerText;
-  button.disabled = true;
-  button.classList.add("opacity-60", "cursor-not-allowed");
-  button.innerText = "Procesando...";
-  try {
-    return await fn();
-  } finally {
-    button.disabled = previousDisabled;
-    button.classList.remove("opacity-60", "cursor-not-allowed");
-    button.innerText = previousText;
-  }
 }
 
 function normalizePhotoURL(url, fallbackName = "Usuario") {
@@ -603,13 +531,16 @@ function renderRecommendations() {
 }
 
 function showMainView(viewName) {
-  currentMainView = ["groups", "profile", "predictions", "recommendations", "web"].includes(viewName) ? viewName : "groups";
+  currentMainView = ["groups", "profile", "predictions", "recommendations", "web", "photography"].includes(viewName) ? viewName : "groups";
+  
   const groupsView = document.getElementById("groups-view");
   const profileView = document.getElementById("profile-view");
   const predictionsView = document.getElementById("predictions-view");
   const recommendationsView = document.getElementById("recommendations-view");
   const webView = document.getElementById("web-view");
-  if (!groupsView || !profileView || !predictionsView || !recommendationsView) return;
+  const photographyView = document.getElementById("photography-view");
+  
+  if (!groupsView || !profileView || !predictionsView || !recommendationsView || !webView || !photographyView) return;
 
   if (currentMainView === "profile") {
     groupsView.classList.add("hidden");
@@ -617,12 +548,14 @@ function showMainView(viewName) {
     predictionsView.classList.add("hidden");
     recommendationsView.classList.add("hidden");
     webView.classList.add("hidden");
+    photographyView.classList.add("hidden");
   } else if (currentMainView === "predictions") {
     groupsView.classList.add("hidden");
     profileView.classList.add("hidden");
     predictionsView.classList.remove("hidden");
     recommendationsView.classList.add("hidden");
     webView.classList.add("hidden");
+    photographyView.classList.add("hidden");
     renderPredictions();
   } else if (currentMainView === "recommendations") {
     groupsView.classList.add("hidden");
@@ -630,22 +563,29 @@ function showMainView(viewName) {
     predictionsView.classList.add("hidden");
     recommendationsView.classList.remove("hidden");
     webView.classList.add("hidden");
+    photographyView.classList.add("hidden");
     renderRecommendations();
-
   } else if (currentMainView === "web") {
     groupsView.classList.add("hidden");
     profileView.classList.add("hidden");
     predictionsView.classList.add("hidden");
     recommendationsView.classList.add("hidden");
     webView.classList.remove("hidden");
-
+    photographyView.classList.add("hidden");
     renderWebImprovements();
-
+  } else if (currentMainView === "photography") {
+    groupsView.classList.add("hidden");
+    profileView.classList.add("hidden");
+    predictionsView.classList.add("hidden");
+    recommendationsView.classList.add("hidden");
+    webView.classList.add("hidden");
+    photographyView.classList.remove("hidden");
   } else {
     profileView.classList.add("hidden");
     predictionsView.classList.add("hidden");
     recommendationsView.classList.add("hidden");
     webView.classList.add("hidden");
+    photographyView.classList.add("hidden");
     groupsView.classList.remove("hidden");
   }
   updateNavbarViewState();
@@ -789,13 +729,16 @@ const navProfileBtn = document.getElementById("nav-profile-btn");
 const navPredictionsBtn = document.getElementById("nav-predictions-btn");
 const navRecommendationsBtn = document.getElementById("nav-recommendations-btn");
 const navWebBtn = document.getElementById("nav-web-btn");
+const navPhotographyBtn = document.getElementById("nav-photography-btn");
 
 function updateNavbarViewState() {
   const viewByButton = [
     [navGroupsBtn, "groups"],
     [navProfileBtn, "profile"],
     [navPredictionsBtn, "predictions"],
-    [navRecommendationsBtn, "recommendations"]
+    [navRecommendationsBtn, "recommendations"],
+    [navWebBtn, "web"],
+    [navPhotographyBtn, "photography"]
   ];
   viewByButton.forEach(([button, viewName]) => {
     if (!button) return;
@@ -851,6 +794,11 @@ navRecommendationsBtn.addEventListener("click", () => {
 
 navWebBtn.addEventListener("click", () => {
   showMainView("web");
+  closeNavbarMenu();
+});
+
+navPhotographyBtn.addEventListener("click", () => {
+  showMainView("photography");
   closeNavbarMenu();
 });
 
@@ -921,6 +869,11 @@ document.getElementById("save-recommendation-btn").onclick = async () => {
   alert("Recomendacion enviada.");
 };
 
+document.getElementById("generate-collage-btn").onclick = async () => {
+  await runWithDisabledButton("generate-collage-btn", async () => {
+    await generarComposicion3x2();
+  });
+};
 
 /* ========== OMDb ========== */
 const OMDB_API_KEY = "8b02fcfe";

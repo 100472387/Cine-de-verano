@@ -53,6 +53,9 @@
         <button id="nav-recommendations-btn" class="w-full text-left px-3 py-2 rounded-lg text-slate-200 hover:bg-slate-800">
           <i class="fas fa-clapperboard mr-2 text-slate-400"></i>Recomendaciones
         </button>
+        <button id="nav-photography-btn" class="w-full text-left px-3 py-2 rounded-lg text-slate-200 hover:bg-slate-800">
+          <i class="fas fa-camera mr-2 text-slate-400"></i>Fotografía
+        </button>
         <button id="nav-web-btn" class="w-full text-left px-3 py-2 rounded-lg text-slate-200 hover:bg-slate-800">
           <i class="fas fa-code mr-2 text-slate-400"></i>Mejoras Web
         </button>
@@ -201,6 +204,51 @@
           <h3 class="font-bungee text-yellow-500 text-2xl mb-2">Para ti</h3>
           <p class="text-slate-400 text-sm mb-4">Las películas que te han recomendado aparecen aquí.</p>
           <div id="recommendations-list" class="space-y-3"></div>
+        </div>
+      </div>
+    </section>
+
+        <section id="photography-view" class="hidden">
+      <div class="max-w-3xl mx-auto bg-slate-900 p-8 rounded-3xl border border-yellow-500/20 shadow-2xl">
+        <h2 class="font-bungee text-yellow-500 text-3xl mb-2">Composición 3x2</h2>
+        <p class="text-slate-400 mb-6">Sube dos imágenes para unirlas horizontalmente manteniendo una proporción horizontal de 3:2 perfecta.</p>
+        
+        <div class="grid md:grid-cols-2 gap-6 mb-4">
+          <div>
+            <label class="block text-sm text-slate-300 mb-1 font-semibold">Imagen Izquierda (1)</label>
+            <input type="file" id="photo-input-1" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-yellow-500 file:text-black hover:file:bg-yellow-400 cursor-pointer">
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1 font-semibold">Imagen Derecha (2)</label>
+            <input type="file" id="photo-input-2" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-yellow-500 file:text-black hover:file:bg-yellow-400 cursor-pointer">
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <label class="block text-sm text-slate-300 mb-1">Escala de fotos (% del alto del lienzo):</label>
+            <input type="number" id="photo-porc-alto" value="1.0" step="0.01" min="0.1" max="1.0" class="w-full p-3 rounded bg-slate-800 border border-slate-700 text-white font-mono">
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1">Espacio de separación (Gap %):</label>
+            <input type="number" id="photo-porc-gap" value="0.00" step="0.005" min="0.0" max="0.5" class="w-full p-3 rounded bg-slate-800 border border-slate-700 text-white font-mono">
+          </div>
+        </div>
+
+        <button id="generate-collage-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded-xl font-black transition-all transform active:scale-95 shadow-lg">
+          <i class="fas fa-wand-magic-sparkles mr-2"></i>Generar Composición
+        </button>
+
+        <div id="collage-result-container" class="hidden mt-8 text-center border-t border-slate-800 pt-6">
+          <h3 class="text-white font-bungee text-lg mb-3">Resultado Obtenido</h3>
+          <div class="border border-slate-700 rounded-2xl overflow-hidden max-w-full inline-block bg-white p-2">
+            <img id="collage-output-img" class="max-w-full h-auto mx-auto rounded-lg shadow-inner" alt="Resultado de la composición">
+          </div>
+          <div class="mt-4">
+            <a id="download-collage-btn" download="composicion_3x2.jpg" class="inline-flex items-center bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-xl font-bold cursor-pointer transition-colors">
+              <i class="fas fa-download mr-2 text-yellow-500"></i>Descargar Imagen
+            </a>
+          </div>
         </div>
       </div>
     </section>
