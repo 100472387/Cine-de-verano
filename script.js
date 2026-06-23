@@ -300,7 +300,7 @@ async function fetchProfilesToCache(userIds) {
       loadingProfileIds.delete(id);
     });
     renderPredictions();
-    renderRecommendations();
+    window.renderRecommendations();
   } catch (err) {
     console.error("No se pudieron cargar perfiles para el ranking", err);
     pending.forEach((id) => loadingProfileIds.delete(id));
@@ -312,11 +312,11 @@ async function loadAdminUsers() {
     const snap = await getDocs(collection(db, "admins"));
     adminUserIds = snap.docs.map((adminDoc) => adminDoc.id).filter(Boolean);
     await fetchProfilesToCache(adminUserIds);
-    renderRecommendations();
+    window.renderRecommendations();
   } catch (err) {
     console.error("No se pudieron cargar usuarios para recomendaciones", err);
     adminUserIds = [];
-    renderRecommendations();
+    window.renderRecommendations();
   }
 }
 
@@ -491,45 +491,6 @@ function renderWebImprovements() {
   });
 }
 
-function renderRecommendations() {
-  const recipientSelect = document.getElementById("recommendation-recipient-select");
-  const list = document.getElementById("recommendations-list");
-  if (!recipientSelect || !list) return;
-
-  const recipients = adminUserIds.filter((userId) => userId !== uid);
-  recipientSelect.innerHTML = recipients.length
-    ? recipients.map((userId) => {
-      const profile = getProfileForUser(userId);
-      const label = profile ? profile.displayName : `Usuario ${userId.slice(0, 6)}`;
-      return `<option value="${escapeHtml(userId)}">${escapeHtml(label)}</option>`;
-    }).join("")
-    : `<option value="">No hay otros usuarios</option>`;
-
-  if (!recommendations.length) {
-    list.innerHTML = `<div class="text-slate-400 text-sm bg-slate-800/80 border border-slate-700 rounded-xl p-4">Todavia no tienes recomendaciones.</div>`;
-    return;
-  }
-
-  const sorted = [...recommendations].sort((a, b) => b.createdAt - a.createdAt);
-  list.innerHTML = sorted.map((rec) => {
-    const profile = getProfileForUser(rec.fromUid);
-    const displayName = rec.displayName || (profile ? profile.displayName : `Usuario ${rec.fromUid.slice(0, 6)}`);
-    const photoURL = normalizePhotoURL(rec.photoURL || (profile ? profile.photoURL : ""), displayName);
-    return `
-      <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-4">
-        <div class="flex items-center gap-3 mb-3">
-          <img src="${escapeHtml(photoURL)}" alt="Foto" class="w-10 h-10 rounded-full object-cover border border-slate-600 bg-slate-700">
-          <div class="min-w-0">
-            <div class="text-xs text-slate-400">Recomendada por</div>
-            <div class="font-semibold text-slate-100 truncate">${escapeHtml(displayName)}</div>
-          </div>
-        </div>
-        <div class="text-lg font-bold text-yellow-400">${escapeHtml(rec.title)}</div>
-        ${rec.note ? `<p class="text-sm text-slate-300 mt-2 whitespace-pre-wrap">${escapeHtml(rec.note)}</p>` : ""}
-      </div>`;
-  }).join("");
-}
-
 function showMainView(viewName) {
   currentMainView = ["groups", "profile", "predictions", "recommendations", "web", "photography"].includes(viewName) ? viewName : "groups";
   
@@ -564,7 +525,7 @@ function showMainView(viewName) {
     recommendationsView.classList.remove("hidden");
     webView.classList.add("hidden");
     photographyView.classList.add("hidden");
-    renderRecommendations();
+    window.renderRecommendations();
   } else if (currentMainView === "web") {
     groupsView.classList.add("hidden");
     profileView.classList.add("hidden");
@@ -649,10 +610,13 @@ document.getElementById("admin-login-btn").onclick = async () => {
   });
 };
 
-document.getElementById("admin-logout-btn").onclick = async () => {
-  await signOut(auth);
-  alert("SesiÃ³n cerrada");
-};
+const adminLogoutBtn = document.getElementById("nav-logout-btn");
+if (adminLogoutBtn) {
+  adminLogoutBtn.onclick = async () => {
+    await signOut(auth);
+    alert("Sesión cerrada");
+  };
+}
 
 document.getElementById("show-register-btn").onclick = () => {
   document.getElementById("admin-login-panel").classList.add("hidden");
@@ -933,13 +897,195 @@ function initRecommendations() {
       .filter(Boolean);
     const unknownUsers = recommendations.map((rec) => rec.fromUid).filter((userId) => !profileCache[userId]);
     if (unknownUsers.length) fetchProfilesToCache(unknownUsers);
-    renderRecommendations();
+    window.renderRecommendations();
   }, err => {
     console.error("No se pudieron cargar recomendaciones", err);
     recommendations = [];
-    renderRecommendations();
+    window.renderRecommendations();
   });
 }
+
+// === ESTADO GLOBAL ASOCIADO A WINDOW PARA LAS RECOMENDACIONES ===
+window.currentRecViewMode = window.currentRecViewMode || 'carousel';
+window.recPostersCache = window.recPostersCache || {};
+
+// Función para alternar entre vista de carrusel y rejilla completa
+window.switchRecViewMode = function(mode) {
+  window.currentRecViewMode = mode;
+  const carouselBtn = document.getElementById('rec-view-carousel-btn');
+  const gridBtn = document.getElementById('rec-view-grid-btn');
+  
+  if (carouselBtn && gridBtn) {
+    if (mode === 'carousel') {
+      carouselBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-yellow-500 text-black shadow";
+      gridBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 text-slate-400 hover:text-slate-200";
+    } else {
+      gridBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-yellow-500 text-black shadow";
+      carouselBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 text-slate-400 hover:text-slate-200";
+    }
+  }
+  window.renderRecommendations();
+};
+
+// === REESCRITURA TOTAL DEL MOTOR DE RENDERIZADO ===
+window.renderRecommendations = async function() {
+  const recipientSelect = document.getElementById("recommendation-recipient-select");
+  const dynamicArea = document.getElementById("recommendations-dynamic-area");
+  
+  if (!recipientSelect || !dynamicArea) return;
+
+  // Sanitizador local para evitar inyecciones maliciosas de texto
+  const cleanStr = (str) => {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+
+  // 1. Población del selector de usuarios del grupo
+  if (typeof adminUserIds !== 'undefined' && Array.isArray(adminUserIds) && typeof uid !== 'undefined') {
+    const recipients = adminUserIds.filter((userId) => userId !== uid);
+    recipientSelect.innerHTML = recipients.length
+      ? recipients.map((userId) => {
+          const profile = typeof getProfileForUser === 'function' ? getProfileForUser(userId) : null;
+          const label = profile ? profile.displayName : `Usuario ${userId.slice(0, 6)}`;
+          return `<option value="${cleanStr(userId)}">${cleanStr(label)}</option>`;
+        }).join("")
+      : `<option value="">No hay otros usuarios</option>`;
+  }
+
+  // 2. Control de estado vacío (Si no tienes ninguna recomendación guardada)
+  if (typeof recommendations === 'undefined' || !recommendations || !recommendations.length) {
+    dynamicArea.innerHTML = `
+      <div class="flex flex-col items-center justify-center p-8 text-center bg-slate-900/60 border border-slate-800 rounded-2xl">
+        <i class="fas fa-comment-slash text-slate-600 text-3xl mb-3"></i>
+        <p class="text-slate-400 text-sm font-medium">Nadie te ha recomendado ninguna película todavía.</p>
+      </div>`;
+    return;
+  }
+
+  // 3. Ordenación cronológica (Más nuevas primero)
+  const sortedRecs = [...recommendations].sort((a, b) => {
+    const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt || 0);
+    const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt || 0);
+    return timeB - timeA;
+  });
+
+  // 4. Carga asíncrona no bloqueante de pósters de OMDb en segundo plano
+  sortedRecs.forEach(async (rec) => {
+    if (rec.title && !window.recPostersCache[rec.title]) {
+      window.recPostersCache[rec.title] = "loading";
+      try {
+        if (typeof fetchMovieData === 'function') {
+          const data = await fetchMovieData(rec.title);
+          window.recPostersCache[rec.title] = (data && data.img) ? data.img : "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=600";
+        } else {
+          window.recPostersCache[rec.title] = "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=600";
+        }
+      } catch (e) {
+        window.recPostersCache[rec.title] = "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=600";
+      }
+      
+      // Mutación en caliente de la imagen del DOM cuando la API responde
+      const elements = document.querySelectorAll(`[data-rec-title="${cleanStr(rec.title)}"]`);
+      elements.forEach(img => {
+        img.src = window.recPostersCache[rec.title];
+      });
+    }
+  });
+
+  // 5. Construcción de las tarjetas según el modo activo
+  const cardsHtml = sortedRecs.map((rec) => {
+    const profile = (typeof getProfileForUser === 'function' && rec.fromUid) ? getProfileForUser(rec.fromUid) : null;
+    const displayName = rec.displayName || (profile ? profile.displayName : `Usuario ${String(rec.fromUid || '').slice(0, 6)}`);
+    
+    let photoURL = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/firebase-ui-avatar-hidden.png";
+    if (rec.photoURL) photoURL = rec.photoURL;
+    else if (profile && profile.photoURL) photoURL = profile.photoURL;
+    
+    if (typeof normalizePhotoURL === 'function') {
+      photoURL = normalizePhotoURL(photoURL, displayName);
+    }
+
+    const cached = window.recPostersCache[rec.title];
+    const posterSrc = (cached && cached !== "loading") ? cached : "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=600";
+    const safeTitle = cleanStr(rec.title);
+    
+    const dateObj = rec.createdAt?.seconds ? new Date(rec.createdAt.seconds * 1000) : new Date(rec.createdAt || Date.now());
+    const formattedDate = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    if (window.currentRecViewMode === 'carousel') {
+      // FORMATO A: Carrusel con póster vertical (Avatar blindado con estilo en línea)
+      return `
+        <div class="rec-mobile-card">
+          <div class="rec-card-poster-space">
+            <img src="${posterSrc}" data-rec-title="${safeTitle}" alt="${safeTitle}" onerror="this.src='https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=600'">
+            <div class="rec-poster-scrim"></div>
+            
+            <div class="absolute top-3 left-3 right-3 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-slate-800/60 max-w-fit shadow-lg">
+              <img src="${cleanStr(photoURL)}" alt="Avatar" class="rounded-full object-cover border border-slate-600 bg-slate-700" 
+                   style="width: 20px !important; height: 20px !important; min-width: 20px !important; max-width: 20px !important; border-radius: 9999px;">
+              <span class="text-[11px] font-semibold text-slate-200 truncate max-w-[110px]">${cleanStr(displayName)}</span>
+            </div>
+          </div>
+          <div class="p-4 flex-1 flex flex-col justify-between bg-slate-900/90 border-t border-slate-800/40">
+            <div class="space-y-1.5">
+              <h4 class="text-base font-black text-yellow-400 tracking-tight leading-snug truncate" title="${safeTitle}">${safeTitle}</h4>
+              ${rec.note ? `<p class="rec-clamp-motivation text-xs text-slate-300 leading-relaxed">${cleanStr(rec.note)}</p>` : `<p class="text-xs text-slate-500 italic">Te la recomienda sin notas adicionales.</p>`}
+            </div>
+            <div class="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+              <span><i class="far fa-clock mr-1"></i> ${formattedDate}</span>
+              <a href="https://www.imdb.com/find?q=${encodeURIComponent(rec.title)}" target="_blank" rel="noopener noreferrer" class="text-yellow-500/90 hover:text-yellow-400 font-bold flex items-center gap-0.5 transition-colors">
+                IMDb <i class="fas fa-chevron-right text-[8px]"></i>
+              </a>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      // FORMATO B: Rejilla Completa (Avatar también blindado aquí por si acaso)
+      return `
+        <div class="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg flex flex-col sm:flex-row h-auto">
+          <div class="relative w-full sm:w-28 aspect-video sm:aspect-auto sm:min-h-[120px] bg-slate-950 flex-shrink-0">
+            <img src="${posterSrc}" data-rec-title="${safeTitle}" alt="${safeTitle}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=600'">
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent sm:hidden"></div>
+          </div>
+          <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <h4 class="text-base font-bold text-yellow-400 tracking-tight">${safeTitle}</h4>
+                <div class="flex items-center gap-1.5 bg-slate-800/60 px-2 py-0.5 rounded-lg border border-slate-700/50 max-w-fit">
+                  <img src="${cleanStr(photoURL)}" alt="Avatar" class="rounded-full object-cover" 
+                       style="width: 14px !important; height: 14px !important; min-width: 14px !important; max-width: 14px !important; border-radius: 9999px;">
+                  <span class="text-[9px] text-slate-300 font-medium truncate max-w-[70px]">${cleanStr(displayName)}</span>
+                </div>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">${rec.note ? cleanStr(rec.note) : '<span class="text-slate-500 italic">Sin notas adicionales.</span>'}</p>
+            </div>
+            <div class="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500">
+              <span><i class="far fa-clock mr-1"></i> ${formattedDate}</span>
+              <a href="https://www.imdb.com/find?q=${encodeURIComponent(rec.title)}" target="_blank" rel="noopener noreferrer" class="text-yellow-500 font-bold flex items-center gap-0.5">
+                Ver en IMDb <i class="fas fa-chevron-right text-[8px]"></i>
+              </a>
+            </div>
+          </div>
+        </div>`;
+    }
+  }).join("");
+
+  // 6. Inyección final del cascarón estructural
+  if (window.currentRecViewMode === 'carousel') {
+    dynamicArea.innerHTML = `
+      <div class="rec-carousel-flow">
+        ${cardsHtml}
+      </div>
+      <div class="text-center text-[10px] text-slate-500 font-semibold animate-pulse tracking-wide mt-1">
+        <i class="fas fa-hand-pointer mr-1"></i> Desliza hacia los lados para explorar
+      </div>`;
+  } else {
+    dynamicArea.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ${cardsHtml}
+      </div>`;
+  }
+};
 
 /* ========== AUTH STATE CHANGES ========= */
 const onAuthStateChangedHandler = async (user) => {
@@ -1080,7 +1226,7 @@ function render() {
     dropdownList.innerHTML += `<div class="border-t border-slate-700 my-1"></div>`;
   }
 
-  dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">DÃ­as / Cartelera</div>`;
+  dropdownList.innerHTML += `<div class="bg-slate-800 px-4 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Días / Cartelera</div>`;
 
   schedule.forEach((d, i) => {
     const isShared = normalizeLabel(d.label) === normalizeLabel(SHARED_CATEGORY_LABEL);
@@ -1320,5 +1466,3 @@ document.getElementById('reset-randomizer').onclick = () => {
     .forEach(el => el.classList.remove('winner', 'highlight'));
   document.getElementById('randomizer-result-box').classList.add('hidden');
 };
-
-
