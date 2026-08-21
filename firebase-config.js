@@ -1,7 +1,7 @@
 /* ========== IMPORTS FIREBASE ========== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, setPersistence, browserSessionPersistence, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, addDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, addDoc, query, where, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /* ========== FIREBASE CONFIG ========== */
 const firebaseConfig = {
@@ -15,6 +15,13 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+// Re-exportamos aquí los helpers de Firestore/Auth que usa el resto de la
+// app, para que script.js solo tenga que importar de un único sitio.
+export {
+  doc, onSnapshot, setDoc, getDoc, collection, getDocs, addDoc, query, where, runTransaction,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged
+};
+
 setPersistence(auth, browserSessionPersistence).catch((err) => {
-  console.error("No se pudo fijar persistencia de sesiÃ³n", err);
+  console.error("No se pudo fijar la persistencia de sesión:", err);
 });

@@ -56,18 +56,97 @@ export async function runWithDisabledButton(buttonId, fn) {
   }
 }
 
+/* ========== NOTIFICACIONES (TOAST) ========== */
+const TOAST_ICON_BY_TYPE = {
+  success: "fa-circle-check",
+  error: "fa-circle-exclamation",
+  info: "fa-circle-info"
+};
+
+/**
+ * Muestra una notificación flotante no bloqueante.
+ * Sustituye a los alert() nativos, que interrumpen el flujo y no
+ * funcionan bien en móvil. Si el contenedor no existe en el DOM
+ * (por ejemplo en una página antigua sin actualizar), cae de forma
+ * segura a la consola para no romper la ejecución.
+ */
+export function showToast(message, type = "info", duration = 3800) {
+  const container = document.getElementById("toast-container");
+  if (!container) {
+    if (type === "error") console.error(message);
+    else console.log(message);
+    return;
+  }
+  const icon = TOAST_ICON_BY_TYPE[type] || TOAST_ICON_BY_TYPE.info;
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.setAttribute("role", "status");
+  toast.innerHTML = `<i class="fas ${icon}" aria-hidden="true"></i><span>${escapeHtml(message)}</span>`;
+  container.appendChild(toast);
+
+  window.setTimeout(() => {
+    toast.classList.add("toast-out");
+    window.setTimeout(() => toast.remove(), 220);
+  }, duration);
+}
+
+/* ========== ERRORES INLINE EN FORMULARIOS ========== */
+/**
+ * Muestra u oculta un mensaje de error bajo un formulario (login/registro).
+ * Pasar message = "" o null oculta el bloque.
+ */
+export function setInlineError(errorElementId, message) {
+  const el = document.getElementById(errorElementId);
+  if (!el) return;
+  if (message) {
+    el.textContent = message;
+    el.classList.remove("hidden");
+  } else {
+    el.textContent = "";
+    el.classList.add("hidden");
+  }
+}
+
+/* ========== FETCH CON TIMEOUT ========== */
+/**
+ * Envoltorio de fetch que aborta la petición pasado un tiempo máximo,
+ * para que una API externa lenta (p.ej. OMDb) no deje el botón
+ * "Procesando..." colgado indefinidamente.
+ */
+export async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 /* ========== COMPOSICIÓN DE IMÁGENES (PORT DESDE PYTHON) ========== */
+const MAX_COLLAGE_IMAGE_BYTES = 20 * 1024 * 1024; // 20 MB por foto
+
+function isUsableImageFile(file) {
+  return file && typeof file.type === "string" && file.type.startsWith("image/") && file.size <= MAX_COLLAGE_IMAGE_BYTES;
+}
+
 export async function generarComposicion3x2() {
   const file1 = document.getElementById('photo-input-1').files[0];
   const file2 = document.getElementById('photo-input-2').files[0];
 
   if (!file1 || !file2) {
-    alert("Por favor, selecciona ambas imágenes para poder realizar la composición.");
+    showToast("Selecciona ambas imágenes para poder realizar la composición.", "info");
+    return;
+  }
+  if (!isUsableImageFile(file1) || !isUsableImageFile(file2)) {
+    showToast("Cada imagen debe ser un archivo de imagen válido de menos de 20 MB.", "error");
     return;
   }
 
-  const porcAlto = parseFloat(document.getElementById('photo-porc-alto').value) || 1.0;
-  const porcGap = parseFloat(document.getElementById('photo-porc-gap').value) || 0.0;
+  const porcAltoRaw = parseFloat(document.getElementById('photo-porc-alto').value);
+  const porcGapRaw = parseFloat(document.getElementById('photo-porc-gap').value);
+  const porcAlto = Number.isFinite(porcAltoRaw) && porcAltoRaw > 0 ? Math.min(porcAltoRaw, 1) : 1.0;
+  const porcGap = Number.isFinite(porcGapRaw) && porcGapRaw >= 0 ? Math.min(porcGapRaw, 0.5) : 0.0;
 
   // Helper para transformar archivos subidos en objetos Image cargados en memoria
   const cargarImagenNativa = (file) => new Promise((resolve, reject) => {
@@ -75,16 +154,15 @@ export async function generarComposicion3x2() {
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => resolve(img);
-      img.onerror = reject;
+      img.onerror = () => reject(new Error("No se pudo decodificar la imagen"));
       img.src = e.target.result;
     };
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
     reader.readAsDataURL(file);
   });
 
   try {
-    const img1 = await cargarImagenNativa(file1);
-    const img2 = await cargarImagenNativa(file2);
+    const [img1, img2] = await Promise.all([cargarImagenNativa(file1), cargarImagenNativa(file2)]);
 
     // 1. Determinar dimensiones base (Equivalente a img1.size[1])
     const h_referencia = Math.max(img1.naturalHeight, img2.naturalHeight);
@@ -130,9 +208,9 @@ export async function generarComposicion3x2() {
     document.getElementById('download-collage-btn').href = resultadoDataUrl;
     document.getElementById('collage-result-container').classList.remove('hidden');
 
-    console.log(`¡Composición lista! Lienzo: ${ancho_lienzo}x${alto_lienzo} | Espacio medio: ${gap}px`);
+    showToast(`Composición lista (${ancho_lienzo}×${alto_lienzo}px).`, "success");
   } catch (error) {
     console.error("Error procesando las imágenes:", error);
-    alert("Hubo un error al procesar las imágenes. Asegúrate de que son archivos válidos.");
+    showToast("Hubo un error al procesar las imágenes. Asegúrate de que son archivos válidos.", "error");
   }
 }

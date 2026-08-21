@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
@@ -17,8 +17,8 @@
 <!-- ===== HEADER / HERO ===== -->
 <header id="main-header" class="relative hero-gradient flex items-center justify-center text-center transition-all duration-500">
   <div id="hero-content" class="z-10 mt-16 px-4">
-    <h1 class="text-5xl md:text-8xl font-bungee text-yellow-400 title-glow mb-4">Cine de Verano</h1>
-    <p class="text-lg md:text-2xl font-light tracking-[0.25em] uppercase text-slate-200">Para que luego os quejéis</p>
+    <h1 class="text-5xl md:text-8xl title-serif text-yellow-400 title-glow mb-4">Cine de Verano</h1>
+    <p class="text-lg md:text-2xl font-light tracking-[0.25em] uppercase text-slate-200">Colección de cine al aire libre</p>
   </div>
 
   <!-- NAVBAR (visible solo tras login) -->
@@ -27,7 +27,7 @@
       <i class="fas fa-bars" aria-hidden="true"></i>
     </button>
     <div class="flex items-center gap-3">
-      <span class="font-bungee text-yellow-500 text-lg tracking-wider">Cine de Verano</span>
+      <span class="title-serif text-yellow-500 text-lg tracking-wider">Cine de Verano</span>
       <div class="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center text-black" aria-hidden="true">
         <i class="fas fa-film"></i>
       </div>
@@ -82,7 +82,7 @@
       <div class="w-10 h-10 bg-yellow-500/10 rounded-xl flex items-center justify-center">
         <i class="fas fa-film text-yellow-500 text-lg" aria-hidden="true"></i>
       </div>
-      <h2 class="text-yellow-500 font-bungee text-xl">Inicia sesión</h2>
+      <h2 class="text-yellow-500 title-serif text-xl">Inicia sesión</h2>
     </div>
     <div class="space-y-3">
       <div>
@@ -114,7 +114,7 @@
       <div class="w-10 h-10 bg-yellow-500/10 rounded-xl flex items-center justify-center">
         <i class="fas fa-user-plus text-yellow-500 text-lg" aria-hidden="true"></i>
       </div>
-      <h2 class="text-yellow-500 font-bungee text-xl">Crea tu cuenta</h2>
+      <h2 class="text-yellow-500 title-serif text-xl">Crea tu cuenta</h2>
     </div>
     <div class="space-y-3">
       <div>
@@ -145,7 +145,7 @@
     <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
       <i class="fas fa-user-clock text-yellow-500/60 text-3xl" aria-hidden="true"></i>
     </div>
-    <h2 class="text-yellow-500 font-bungee text-2xl mb-2">¡Registrado!</h2>
+    <h2 class="text-yellow-500 title-serif text-2xl mb-2">¡Registrado!</h2>
     <p class="text-slate-400 leading-relaxed">
       Tu cuenta está creada, pero aún no perteneces a ningún grupo. Escríbeme para que te incluya.
     </p>
@@ -160,7 +160,7 @@
     <!-- === VISTA: PERFIL === -->
     <section id="profile-view" class="hidden" aria-label="Perfil de usuario">
       <div class="max-w-3xl mx-auto bg-slate-900 p-6 md:p-8 rounded-3xl border border-yellow-500/20">
-        <h2 class="font-bungee text-yellow-500 text-3xl mb-1">Perfil</h2>
+        <h2 class="title-serif text-yellow-500 text-3xl mb-1">Perfil</h2>
         <p class="text-slate-400 mb-6 text-sm">Tu nombre y foto aparecen junto a tus votos y predicciones.</p>
         <div class="grid md:grid-cols-[160px,1fr] gap-6 items-start">
           <div class="flex flex-col items-center gap-3">
@@ -210,7 +210,7 @@
 
       <!-- Panel de control (solo admin) -->
       <section id="control-panel" class="hidden bg-slate-900 p-6 md:p-8 rounded-3xl border border-yellow-500/20 mt-4" aria-label="Panel de administración">
-        <h2 class="font-bungee text-yellow-500 text-2xl mb-6">
+        <h2 class="title-serif text-yellow-500 text-2xl mb-6">
           <i class="fas fa-sliders mr-2" aria-hidden="true"></i>Panel de Control
         </h2>
         <div class="grid md:grid-cols-2 gap-6">
@@ -244,7 +244,7 @@
         
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div>
-            <h2 class="font-bungee text-yellow-500 text-2xl tracking-wide flex items-center gap-2">
+            <h2 class="title-serif text-yellow-500 text-2xl tracking-wide flex items-center gap-2">
               <i class="fas fa-clapperboard text-xl"></i> Para Ti
             </h2>
           </div>
@@ -301,7 +301,7 @@
     <section id="predictions-view" class="hidden" aria-label="Predicciones Oscar">
       <div id="predictions-layout" class="max-w-5xl mx-auto grid lg:grid-cols-1 gap-6">
         <div id="predictions-form-card" class="hidden bg-slate-900 p-6 rounded-3xl border border-yellow-500/20">
-          <h2 class="font-bungee text-yellow-500 text-3xl mb-1">Predicciones Oscar</h2>
+          <h2 class="title-serif text-yellow-500 text-3xl mb-1">Predicciones Oscar</h2>
           <p class="text-slate-400 text-sm mb-6">Elige tu favorita en cada categoría.</p>
           <div id="predictions-form" class="space-y-3"></div>
           <button id="save-predictions-btn" class="mt-6 w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded-xl font-black transition-all shadow-lg shadow-yellow-500/20">
@@ -310,7 +310,7 @@
         </div>
         <div class="bg-slate-900 p-6 rounded-3xl border border-yellow-500/20">
           <div class="flex items-center justify-between gap-3 mb-1">
-            <h3 class="font-bungee text-yellow-500 text-2xl">Ranking</h3>
+            <h3 class="title-serif text-yellow-500 text-2xl">Ranking</h3>
             <button id="toggle-predictions-edit-btn" class="bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-2 rounded-xl font-bold text-sm transition-all shadow-lg shadow-yellow-500/20">
               Crear encuesta
             </button>
@@ -324,7 +324,7 @@
     <!-- === VISTA: FOTOGRAFÍA === -->
     <section id="photography-view" class="hidden" aria-label="Composición de fotografías">
       <div class="max-w-3xl mx-auto bg-slate-900 p-6 md:p-8 rounded-3xl border border-yellow-500/20 shadow-2xl">
-        <h2 class="font-bungee text-yellow-500 text-3xl mb-1">Composición 3×2</h2>
+        <h2 class="title-serif text-yellow-500 text-3xl mb-1">Composición 3×2</h2>
         <p class="text-slate-400 text-sm mb-6">Une dos fotos horizontalmente con proporción 3:2 perfecta.</p>
 
         <div class="grid md:grid-cols-2 gap-5 mb-4">
@@ -358,7 +358,7 @@
         </button>
 
         <div id="collage-result-container" class="hidden mt-8 text-center border-t border-slate-800 pt-6">
-          <h3 class="text-white font-bungee text-lg mb-4">Resultado</h3>
+          <h3 class="text-white title-serif text-lg mb-4">Resultado</h3>
           <div class="border border-slate-700 rounded-2xl overflow-hidden inline-block bg-white p-2 max-w-full">
             <img id="collage-output-img" class="max-w-full h-auto rounded-lg" alt="Resultado de la composición">
           </div>
@@ -395,7 +395,7 @@
   <div class="randomizer-card">
     <div class="modal-header flex justify-between items-center">
       <div>
-        <h3 class="text-yellow-500 font-bungee text-3xl md:text-4xl leading-tight">Aleatorizador</h3>
+        <h3 class="text-yellow-500 title-serif text-3xl md:text-4xl leading-tight">Aleatorizador</h3>
         <p class="text-[10px] text-slate-500 uppercase tracking-wider mt-0.5">Categoría actual</p>
       </div>
       <button id="close-randomizer"
