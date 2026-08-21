@@ -61,6 +61,9 @@
       <button id="nav-photography-btn" class="nav-btn w-full text-left px-3 py-2.5 rounded-lg text-slate-200 hover:bg-slate-800 transition-colors">
         <i class="fas fa-camera mr-2 text-slate-400" aria-hidden="true"></i>Fotografía
       </button>
+      <button id="nav-shelf-btn" class="nav-btn w-full text-left px-3 py-2.5 rounded-lg text-slate-200 hover:bg-slate-800 transition-colors">
+        <i class="fas fa-compact-disc mr-2 text-slate-400" aria-hidden="true"></i>Estantería
+      </button>
       <button id="nav-web-btn" class="nav-btn w-full text-left px-3 py-2.5 rounded-lg text-slate-200 hover:bg-slate-800 transition-colors">
         <i class="fas fa-code mr-2 text-slate-400" aria-hidden="true"></i>Mejoras Web
       </button>
@@ -372,6 +375,53 @@
       </div>
     </section>
 
+    <!-- === VISTA: ESTANTERÍA === -->
+    <section id="shelf-view" class="hidden" aria-label="Mi estantería">
+      <div class="max-w-3xl mx-auto space-y-6">
+
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 class="title-serif text-yellow-500 text-2xl tracking-wide flex items-center gap-2">
+            <i class="fas fa-compact-disc text-xl"></i> Mi Estantería
+          </h2>
+        </div>
+
+        <details class="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl group">
+          <summary class="list-none flex items-center justify-between p-4 font-bold text-sm text-yellow-400 cursor-pointer select-none hover:bg-slate-800/30 transition-colors">
+            <span class="flex items-center gap-2.5">
+              <i class="fas fa-plus text-xs bg-yellow-500/10 p-2 rounded-lg"></i> Añadir a la estantería
+            </span>
+            <i class="fas fa-chevron-down text-slate-500 text-xs transition-transform group-open:rotate-180"></i>
+          </summary>
+
+          <div class="p-4 border-t border-slate-800/60 bg-slate-950/40 space-y-3">
+            <input id="shelf-movie-title-input" maxlength="120" placeholder="Título de la película"
+              class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-yellow-500/60 focus:outline-none text-sm text-white transition-colors">
+            <label for="shelf-format-select" class="block text-xs font-bold text-slate-400">Formato de la caja</label>
+            <select id="shelf-format-select"
+              class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-yellow-500/60 focus:outline-none text-sm text-white transition-colors">
+              <option value="bluray">Blu-ray</option>
+              <option value="uhd">4K Ultra HD</option>
+              <option value="dvd">DVD</option>
+            </select>
+            <button id="add-shelf-movie-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded-xl font-black text-sm transition-all shadow-lg shadow-yellow-500/10">
+              Añadir caja a la estantería
+            </button>
+          </div>
+        </details>
+
+        <p class="text-slate-500 text-xs -mt-2">
+          <i class="fas fa-hand-pointer mr-1" aria-hidden="true"></i>Arrastra los lomos para ordenarlos. Cada caja encaja automáticamente en la balda más cercana y esta estantería solo la ves tú.
+        </p>
+
+        <div id="shelf-empty-state" class="empty-state hidden">
+          <i class="fas fa-compact-disc" aria-hidden="true"></i>
+          <p>Tu estantería está vacía. Añade tu primera película.</p>
+        </div>
+
+        <div id="shelf-container" class="shelf-container hidden"></div>
+      </div>
+    </section>
+
     <!-- === VISTA: MEJORAS WEB === -->
     <section id="web-view" class="hidden" aria-label="Mejoras Web">
       <div class="relative flex items-center gap-3 mb-8">
@@ -389,6 +439,29 @@
 <footer class="text-center py-8 text-slate-600 text-sm border-t border-slate-800/60 mt-4">
   <p>© 2025 Cine de Verano</p>
 </footer>
+
+<!-- ===== VISOR DE CARÁTULAS DE LA ESTANTERÍA ===== -->
+<div id="shelf-cover-modal" class="shelf-cover-modal" role="dialog" aria-modal="true" aria-labelledby="shelf-cover-title" aria-hidden="true">
+  <article class="shelf-cover-dialog">
+    <button id="close-shelf-cover-btn" class="shelf-cover-close" type="button" aria-label="Cerrar carátula">
+      <i class="fas fa-times" aria-hidden="true"></i>
+    </button>
+    <div class="shelf-cover-stage" aria-hidden="true">
+      <div id="shelf-cover-case" class="shelf-cover-case shelf-cover-case--bluray">
+        <div class="shelf-cover-case-spine"></div>
+        <div class="shelf-cover-case-front">
+          <img id="shelf-cover-image" src="" alt="">
+          <span class="shelf-cover-case-glare"></span>
+        </div>
+      </div>
+    </div>
+    <div class="shelf-cover-info">
+      <p id="shelf-cover-format" class="shelf-cover-format"></p>
+      <h3 id="shelf-cover-title" class="title-serif text-2xl text-white leading-tight"></h3>
+      <p class="text-slate-400 text-sm mt-2">Pulsa fuera de la caja o en cerrar para volver a la estantería.</p>
+    </div>
+  </article>
+</div>
 
 <!-- ===== MODAL ALEATORIZADOR ===== -->
 <div id="randomizer-modal" class="randomizer-modal" role="dialog" aria-modal="true" aria-label="Aleatorizador de películas">
