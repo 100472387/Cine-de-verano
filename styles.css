@@ -575,3 +575,173 @@ header.is-logged-in {
 @media (hover: none) {
   .shelf-box-delete { opacity: 1; }
 }
+
+/* ===== VISOR DE CARÁTULAS ===== */
+body.shelf-cover-open { overflow: hidden; }
+
+.shelf-cover-modal {
+  position: fixed;
+  z-index: 250;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0.22s step-end;
+}
+
+.shelf-cover-modal.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.22s ease;
+}
+
+.shelf-cover-dialog {
+  position: relative;
+  width: min(100%, 430px);
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.98), rgba(2, 6, 23, 0.98));
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.62);
+  transform: translateY(22px) scale(0.96);
+}
+
+.shelf-cover-modal.show .shelf-cover-dialog {
+  animation: shelf-cover-dialog-in 0.32s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
+.shelf-cover-close {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.86);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.shelf-cover-close:hover {
+  color: #fff;
+  background: #334155;
+  transform: rotate(90deg);
+}
+
+.shelf-cover-stage {
+  display: grid;
+  min-height: min(58vh, 460px);
+  place-items: center;
+  perspective: 1200px;
+}
+
+.shelf-cover-case {
+  --cover-frame: #0b4f93;
+  --cover-side: #062b58;
+  --cover-highlight: rgba(191, 219, 254, 0.65);
+  position: relative;
+  width: min(62vw, 286px);
+  aspect-ratio: 2 / 3;
+  transform-style: preserve-3d;
+  transform-origin: left center;
+  filter: drop-shadow(14px 22px 16px rgba(0, 0, 0, 0.52));
+}
+
+.shelf-cover-modal.show .shelf-cover-case {
+  animation: shelf-cover-case-open 0.7s cubic-bezier(0.18, 0.85, 0.24, 1) 0.06s both;
+}
+
+.shelf-cover-case-spine {
+  position: absolute;
+  top: 1.2%;
+  bottom: 1.2%;
+  left: -13px;
+  width: 16px;
+  border-radius: 3px 0 0 3px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.62), var(--cover-side) 55%, var(--cover-highlight));
+  box-shadow: -4px 2px 6px rgba(0, 0, 0, 0.44);
+  transform: rotateY(-78deg);
+  transform-origin: right center;
+}
+
+.shelf-cover-case-front {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 5px solid var(--cover-frame);
+  border-radius: 4px 8px 8px 4px;
+  background: #020617;
+  box-shadow: inset 3px 0 0 var(--cover-highlight), inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  transform: translateZ(10px);
+}
+
+.shelf-cover-case-front img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.shelf-cover-case-glare {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.28), transparent 21%, transparent 64%, rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+
+.shelf-cover-case--dvd {
+  --cover-frame: #1b1b1b;
+  --cover-side: #050505;
+  --cover-highlight: rgba(255, 255, 255, 0.3);
+  width: min(65vw, 300px);
+}
+
+.shelf-cover-case--uhd {
+  --cover-frame: #171717;
+  --cover-side: #040404;
+  --cover-highlight: rgba(250, 204, 21, 0.52);
+}
+
+.shelf-cover-info { text-align: center; }
+
+.shelf-cover-format {
+  margin: 0 0 6px;
+  color: #facc15;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@keyframes shelf-cover-dialog-in {
+  from { opacity: 0; transform: translateY(22px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes shelf-cover-case-open {
+  0% { opacity: 0; transform: translateX(-52px) rotateX(-6deg) rotateY(78deg) scale(0.8); }
+  62% { opacity: 1; transform: translateX(5px) rotateX(2deg) rotateY(-16deg) scale(1.03); }
+  100% { opacity: 1; transform: translateX(0) rotateX(0) rotateY(-8deg) scale(1); }
+}
+
+@media (max-width: 520px) {
+  .shelf-cover-modal { padding: 14px; }
+  .shelf-cover-dialog { padding: 16px; border-radius: 20px; }
+  .shelf-cover-stage { min-height: min(55vh, 410px); }
+  .shelf-cover-case { width: min(66vw, 254px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shelf-cover-modal,
+  .shelf-cover-dialog,
+  .shelf-cover-case { animation: none !important; transition: none !important; }
+}

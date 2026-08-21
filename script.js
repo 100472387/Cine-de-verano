@@ -7,6 +7,7 @@ import {
   normalizeLabel, escapeHtml, sanitizeHttpUrl, normalizeEmail, isValidEmail, isValidPassword,
   truncateClean, runWithDisabledButton, generarComposicion3x2, showToast, setInlineError, fetchWithTimeout
 } from "./utils.js";
+import { createShelf } from "./modules/shelf.js";
  
 /* ========== ESTADO GLOBAL ========== */
 let schedule = [];
@@ -20,6 +21,7 @@ let unsubscribeSchedule = null;
 let sharedDocRef = null;
 let sharedMovies = [];
 let unsubscribeShared = null;
+let shelfDocRef = null;
 const SHARED_CATEGORY_LABEL = "Mejoras Web";
 const SHARED_DOC_ID = "__shared_mejoras_web";
 const DEFAULT_PROFILE_PHOTO = "https://ui-avatars.com/api/?background=334155&color=f8fafc&size=128&name=CV";
@@ -36,17 +38,6 @@ let isEditingPredictions = false;
 let adminUserIds = [];
 let recommendations = [];
 let unsubscribeRecommendations = null;
-let shelfDocRef = null;
-let shelfItems = [];
-let unsubscribeShelf = null;
-let shelfSaveTimer = null;
-const MAX_SHELF_ITEMS = 60;
-const MAX_SHELF_TITLE_LENGTH = 120;
-const SHELF_ROW_HEIGHT = 140;
-const SHELF_BOX_HEIGHT = 118;
-const SHELF_BOX_TOP_OFFSET = SHELF_ROW_HEIGHT - SHELF_BOX_HEIGHT - 4;
-const SHELF_ITEMS_PER_ROW = 12;
-const SHELF_FORMATS = new Set(["dvd", "bluray", "uhd"]);
 const profileCache = {};
 const loadingProfileIds = new Set(); function ensureSharedCategory(list) {
   return {
@@ -284,68 +275,6 @@ function normalizeRecommendationData(data, fallbackId = "") {
   };
 }
  
-function clampPercent(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return 0;
-  return Math.min(100, Math.max(0, num));
-}
-
-function normalizeShelfFormat(value) {
-  return SHELF_FORMATS.has(value) ? value : "bluray";
-}
-
-function shelfTopForRow(row) {
-  return Math.max(0, Math.round(row)) * SHELF_ROW_HEIGHT + SHELF_BOX_TOP_OFFSET;
-}
-
-function snapShelfY(value) {
-  const y = Number(value);
-  const safeY = Number.isFinite(y) ? Math.max(0, y) : SHELF_BOX_TOP_OFFSET;
-  const row = Math.max(0, Math.round((safeY - SHELF_BOX_TOP_OFFSET) / SHELF_ROW_HEIGHT));
-  return shelfTopForRow(row);
-}
- 
-function normalizeShelfItems(rawItems) {
-  if (!Array.isArray(rawItems)) return [];
-  return rawItems
-    .filter((it) => it && typeof it === "object" && it.id && it.title)
-    .slice(0, MAX_SHELF_ITEMS)
-    .map((it) => ({
-      id: String(it.id).slice(0, 60),
-      title: truncateClean(it.title, MAX_SHELF_TITLE_LENGTH),
-      img: sanitizeHttpUrl(it.img, FALLBACK_POSTER),
-      rating: typeof it.rating === "string" || typeof it.rating === "number" ? it.rating : null,
-      format: normalizeShelfFormat(it.format),
-      x: clampPercent(Number(it.x)),
-      y: snapShelfY(it.y)
-    }));
-}
- 
-function generateShelfItemId() {
-  if (window.crypto && typeof window.crypto.randomUUID === "function") {
-    return window.crypto.randomUUID();
-  }
-  return `shelf_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
- 
-function hashSeed(str) {
-  let hash = 0;
-  const text = String(str || "");
-  for (let i = 0; i < text.length; i++) {
-    hash = (hash * 31 + text.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
- 
-function computeNextShelfPosition() {
-  const index = shelfItems.length;
-  const col = index % SHELF_ITEMS_PER_ROW;
-  const row = Math.floor(index / SHELF_ITEMS_PER_ROW);
-  const x = clampPercent((col / SHELF_ITEMS_PER_ROW) * 100 + 2);
-  const y = shelfTopForRow(row);
-  return { x, y };
-}
- 
 function hasPublishedWinners() {
   return OSCAR_SURVEY.every((category) => typeof predictionWinners[category.key] === "string");
 }
@@ -556,165 +485,6 @@ function renderWebImprovements() {
   });
 }
  
-/* ========== ESTANTERÍA PERSONAL ========== */
-function persistShelfItemPosition(id, xPercent, yPx) {
-  const item = shelfItems.find((it) => it.id === id);
-  if (!item) return;
-  item.x = clampPercent(xPercent);
-  item.y = snapShelfY(yPx);
- 
-  if (shelfSaveTimer) window.clearTimeout(shelfSaveTimer);
-  shelfSaveTimer = window.setTimeout(async () => {
-    if (!shelfDocRef) return;
-    try {
-      await setDoc(shelfDocRef, { items: shelfItems }, { merge: true });
-    } catch (err) {
-      console.error("Error al guardar la posición en la estantería:", err);
-      showToast("No se pudo guardar la posición. Inténtalo de nuevo.", "error");
-    }
-  }, 300);
-}
- 
-function makeShelfBoxDraggable(boxEl, item) {
-  boxEl.addEventListener("pointerdown", (ev) => {
-    if (ev.button !== undefined && ev.button !== 0) return;
-    if (ev.target.closest(".shelf-box-delete")) return;
-    const container = document.getElementById("shelf-container");
-    if (!container) return;
-    ev.preventDefault();
- 
-    boxEl.setPointerCapture(ev.pointerId);
-    boxEl.classList.add("dragging");
- 
-    const boxRect = boxEl.getBoundingClientRect();
-    const grabOffsetX = ev.clientX - boxRect.left;
-    const grabOffsetY = ev.clientY - boxRect.top;
- 
-    let pendingXPercent = item.x;
-    let pendingYPx = item.y;
- 
-    function onMove(moveEv) {
-      const rect = container.getBoundingClientRect();
-      const boxWidth = boxEl.offsetWidth;
-      const boxHeight = boxEl.offsetHeight;
- 
-      let leftPx = moveEv.clientX - rect.left - grabOffsetX + container.scrollLeft;
-      let topPx = moveEv.clientY - rect.top - grabOffsetY + container.scrollTop;
- 
-      const maxLeftPx = Math.max(0, rect.width - boxWidth);
-      // Dejamos una balda adicional para poder mover una caja a una fila nueva.
-      const maxTopPx = Math.max(0, Math.max(container.scrollHeight, rect.height) + SHELF_ROW_HEIGHT - boxHeight);
- 
-      leftPx = Math.min(Math.max(leftPx, 0), maxLeftPx);
-      topPx = Math.min(Math.max(topPx, 0), maxTopPx);
- 
-      pendingXPercent = clampPercent((leftPx / rect.width) * 100);
-      pendingYPx = snapShelfY(topPx);
- 
-      boxEl.style.left = `${pendingXPercent}%`;
-      boxEl.style.top = `${pendingYPx}px`;
-    }
- 
-    function onUp() {
-      boxEl.classList.remove("dragging");
-      boxEl.removeEventListener("pointermove", onMove);
-      boxEl.removeEventListener("pointerup", onUp);
-      boxEl.removeEventListener("pointercancel", onUp);
-      const moved = Math.abs(pendingXPercent - item.x) > 0.3 || Math.abs(pendingYPx - item.y) > 3;
-      if (moved) persistShelfItemPosition(item.id, pendingXPercent, pendingYPx);
-    }
- 
-    boxEl.addEventListener("pointermove", onMove);
-    boxEl.addEventListener("pointerup", onUp);
-    boxEl.addEventListener("pointercancel", onUp);
-  });
-}
- 
-function renderShelf() {
-  const container = document.getElementById("shelf-container");
-  const emptyState = document.getElementById("shelf-empty-state");
-  if (!container || !emptyState) return;
- 
-  if (!shelfItems.length) {
-    container.classList.add("hidden");
-    container.innerHTML = "";
-    container.style.minHeight = "";
-    emptyState.classList.remove("hidden");
-    return;
-  }
- 
-  emptyState.classList.add("hidden");
-  container.classList.remove("hidden");
-  container.innerHTML = "";
- 
-  let maxBottom = 0;
- 
-  shelfItems.forEach((item) => {
-    const box = document.createElement("div");
-    const format = normalizeShelfFormat(item.format);
-    box.className = `shelf-box shelf-box--${format}`;
-    box.style.left = `${clampPercent(item.x)}%`;
-    box.style.top = `${snapShelfY(item.y)}px`;
-    const rotationDeg = (hashSeed(item.id) % 5) - 2;
-    box.style.setProperty("--shelf-rotation", `${rotationDeg}deg`);
-    box.dataset.id = item.id;
-    box.title = item.title;
-    box.setAttribute("aria-label", `Caja de ${item.title}`);
- 
-    const safeTitle = escapeHtml(item.title || "");
-    const safeImg = escapeHtml(sanitizeHttpUrl(item.img, FALLBACK_POSTER));
-    const safeId = escapeHtml(item.id);
-
-    box.innerHTML = `
-      <button type="button" onclick="deleteShelfItem('${safeId}', event)" class="shelf-box-delete" aria-label="Quitar de la estantería">
-        <i class="fas fa-times" aria-hidden="true"></i>
-      </button>
-      <span class="shelf-box-surface">
-        <img class="shelf-box-art" src="${safeImg}" alt="" draggable="false" onerror="this.src='${FALLBACK_POSTER}'">
-        <span class="shelf-box-shine" aria-hidden="true"></span>
-        <span class="shelf-box-title">${safeTitle}</span>
-      </span>
-    `;
- 
-    container.appendChild(box);
-    makeShelfBoxDraggable(box, item);
- 
-    maxBottom = Math.max(maxBottom, snapShelfY(item.y) + SHELF_ROW_HEIGHT);
-  });
- 
-  container.style.minHeight = `${Math.max(440, maxBottom + 20)}px`;
-}
- 
-function initShelf() {
-  if (!shelfDocRef) return;
-  if (unsubscribeShelf) unsubscribeShelf();
-  unsubscribeShelf = onSnapshot(shelfDocRef, (snap) => {
-    const data = snap.exists() ? snap.data() : { items: [] };
-    shelfItems = normalizeShelfItems(data.items);
-    if (currentMainView === "shelf") renderShelf();
-  }, (err) => {
-    console.error("Error al escuchar la estantería:", err);
-    showToast("No se pudo sincronizar tu estantería.", "error");
-  });
-}
- 
-window.deleteShelfItem = async (id, e) => {
-  if (e) e.stopPropagation();
-  if (!isAdminFlag || !uid || !shelfDocRef) return;
-  if (!confirm("¿Quitar esta película de tu estantería?")) return;
-  const previous = shelfItems;
-  shelfItems = shelfItems.filter((it) => it.id !== id);
-  renderShelf();
-  try {
-    await setDoc(shelfDocRef, { items: shelfItems }, { merge: true });
-  } catch (err) {
-    console.error("Error al eliminar de la estantería:", err);
-    shelfItems = previous;
-    renderShelf();
-    showToast("No se pudo quitar la película. Inténtalo de nuevo.", "error");
-  }
-};
- 
 function showMainView(viewName) {
   currentMainView = ["groups", "profile", "predictions", "recommendations", "web", "photography", "shelf"].includes(viewName) ? viewName : "groups";
  
@@ -751,7 +521,7 @@ function showMainView(viewName) {
     photographyView.classList.remove("hidden");
   } else if (currentMainView === "shelf") {
     shelfView.classList.remove("hidden");
-    renderShelf();
+    shelf.render();
   } else {
     groupsView.classList.remove("hidden");
   }
@@ -1051,52 +821,6 @@ document.getElementById("save-recommendation-btn").onclick = async () => {
   });
 };
 
-document.getElementById("add-shelf-movie-btn").onclick = async () => {
-  if (!isAdminFlag || !uid || !shelfDocRef) {
-    showToast("Inicia sesión con acceso a un grupo para usar la estantería.", "info");
-    return;
-  }
-
-  const titleInput = document.getElementById("shelf-movie-title-input");
-  const title = truncateClean(titleInput.value, MAX_SHELF_TITLE_LENGTH);
-  const format = normalizeShelfFormat(document.getElementById("shelf-format-select").value);
-  if (!title) {
-    showToast("Escribe el título de la película.", "info");
-    titleInput.focus();
-    return;
-  }
-  if (shelfItems.length >= MAX_SHELF_ITEMS) {
-    showToast(`La estantería admite hasta ${MAX_SHELF_ITEMS} películas.`, "info");
-    return;
-  }
-
-  await runWithDisabledButton("add-shelf-movie-btn", async () => {
-    const previousItems = shelfItems;
-    try {
-      const data = await fetchMovieData(title);
-      const position = computeNextShelfPosition();
-      const newItem = {
-        id: generateShelfItemId(),
-        title,
-        img: data.img,
-        rating: data.rating,
-        format,
-        ...position
-      };
-      shelfItems = [...shelfItems, newItem];
-      renderShelf();
-      await setDoc(shelfDocRef, { items: shelfItems }, { merge: true });
-      titleInput.value = "";
-      showToast("Película añadida a tu estantería.", "success");
-    } catch (err) {
-      console.error("Error al añadir a la estantería:", err);
-      shelfItems = previousItems;
-      renderShelf();
-      showToast("No se pudo añadir la película. Inténtalo de nuevo.", "error");
-    }
-  });
-};
-
 document.getElementById("shelf-movie-title-input").addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -1147,6 +871,12 @@ async function fetchMovieData(title) {
   }
 }
  
+const shelf = createShelf({
+  fetchMovieData,
+  fallbackPoster: FALLBACK_POSTER,
+  isViewActive: () => currentMainView === "shelf"
+});
+
 /* ========== INIT: escucha schedule ========= */
 function init() {
   if (!docRef) return;
@@ -1379,10 +1109,7 @@ const onAuthStateChangedHandler = async (user) => {
     if (unsubscribeSchedule) unsubscribeSchedule();
     if (unsubscribeShared) unsubscribeShared();
     if (unsubscribeRecommendations) unsubscribeRecommendations();
-    if (unsubscribeShelf) unsubscribeShelf();
-    unsubscribeShelf = null;
-    shelfDocRef = null;
-    shelfItems = [];
+    shelf.clear();
     uid = null;
     isAdminFlag = false;
     isEditingPredictions = false;
@@ -1414,7 +1141,6 @@ const onAuthStateChangedHandler = async (user) => {
     selectedGroup = userGroups[0];
     docRef = doc(db, "cine-verano", selectedGroup);
     sharedDocRef = doc(db, "cine-verano", SHARED_DOC_ID);
-    shelfDocRef = doc(db, "shelves", uid);
     loginPanel.classList.add("hidden");
     registerPanel.classList.add("hidden");
     noGroupPanel.classList.add("hidden");
@@ -1428,7 +1154,10 @@ const onAuthStateChangedHandler = async (user) => {
     showMainView("groups");
     init();
     initShared();
-    initShelf();
+    shelf.setSession({
+      uid,
+      editable: true
+    });
     loadAdminUsers();
     initRecommendations();
   } else {
