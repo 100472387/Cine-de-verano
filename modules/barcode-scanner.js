@@ -14,7 +14,11 @@ import { showToast } from "../utils.js";
 // ZXing se sirve desde el propio dominio para no chocar con script-src 'self'.
 // Ver INTEGRACION.md para descargar el archivo a vendor/.
 const ZXING_SCRIPT_URL = new URL("../vendor/zxing.min.js", import.meta.url).href;
-const TARGET_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
+// Solo EAN-13 y UPC-A: son los formatos que usan de verdad las películas
+// (DVD, Blu-ray, 4K). EAN-8 y UPC-E se han quitado a propósito: comparten
+// estructura visual con el extremo de un EAN-13, y el lector podía "leer"
+// solo la mitad del código real como si fuera un EAN-8 completo distinto.
+const TARGET_FORMATS = ["ean_13", "upc_a"];
 const DECODE_INTERVAL_MS = 220;
 // Cada cuántos fotogramas se actualiza el mensaje "Analizando…" en pantalla,
 // para que se note que el lector sigue vivo aunque no encuentre nada todavía.
@@ -45,8 +49,6 @@ function loadZxing() {
 }
 
 function hasValidChecksum(code) {
-  // UPC-E y EAN-8 los valida el propio decodificador; aquí solo EAN-13 / UPC-A.
-  if (!/^\d{12,13}$/.test(code)) return true;
   const digits = code.split("").map(Number);
   const check = digits.pop();
   let sum = 0;
@@ -58,7 +60,7 @@ function hasValidChecksum(code) {
 
 function isAcceptableCode(value) {
   const code = String(value || "").trim();
-  if (!/^(\d{8}|\d{12,13})$/.test(code)) return false;
+  if (!/^\d{12,13}$/.test(code)) return false;
   return hasValidChecksum(code);
 }
 
@@ -244,9 +246,7 @@ export function createBarcodeScanner() {
     const hints = new Map();
     hints.set(DecodeHintType.POSSIBLE_FORMATS, [
       BarcodeFormat.EAN_13,
-      BarcodeFormat.EAN_8,
-      BarcodeFormat.UPC_A,
-      BarcodeFormat.UPC_E
+      BarcodeFormat.UPC_A
     ]);
     hints.set(DecodeHintType.TRY_HARDER, true);
 
