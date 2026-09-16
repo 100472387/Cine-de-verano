@@ -7,6 +7,7 @@ import {
   normalizeLabel, escapeHtml, sanitizeHttpUrl, normalizeEmail, isValidEmail, isValidPassword,
   truncateClean, runWithDisabledButton, generarComposicion3x2, showToast, setInlineError, fetchWithTimeout
 } from "./utils.js";
+import { createShelf } from "./modules/shelf.js";
  
 /* ========== ESTADO GLOBAL ========== */
 let schedule = [];
@@ -20,6 +21,7 @@ let unsubscribeSchedule = null;
 let sharedDocRef = null;
 let sharedMovies = [];
 let unsubscribeShared = null;
+let shelfDocRef = null;
 const SHARED_CATEGORY_LABEL = "Mejoras Web";
 const SHARED_DOC_ID = "__shared_mejoras_web";
 const DEFAULT_PROFILE_PHOTO = "https://ui-avatars.com/api/?background=334155&color=f8fafc&size=128&name=CV";
@@ -47,7 +49,59 @@ const loadingProfileIds = new Set(); function ensureSharedCategory(list) {
     changed: false
   };
 }
+
+import {
+  auth, db,
+  doc, onSnapshot, setDoc, getDoc, collection, getDocs, addDoc, query, where, runTransaction,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged
+} from "./firebase-config.js";
+import {
+  normalizeLabel, escapeHtml, sanitizeHttpUrl, normalizeEmail, isValidEmail, isValidPassword,
+  truncateClean, runWithDisabledButton, generarComposicion3x2, showToast, setInlineError, fetchWithTimeout
+} from "./utils.js";
+import { createShelf } from "./modules/shelf.js";
  
+/* ========== ESTADO GLOBAL ========== */
+let schedule = [];
+let currentDay = 0;
+let uid = null;
+let isAdminFlag = false;
+let userGroups = [];
+let selectedGroup = null;
+let docRef = null;
+let unsubscribeSchedule = null;
+let sharedDocRef = null;
+let sharedMovies = [];
+let unsubscribeShared = null;
+let shelfDocRef = null;
+const SHARED_CATEGORY_LABEL = "Mejoras Web";
+const SHARED_DOC_ID = "__shared_mejoras_web";
+const DEFAULT_PROFILE_PHOTO = "https://ui-avatars.com/api/?background=334155&color=f8fafc&size=128&name=CV";
+const FALLBACK_POSTER = "https://images.unsplash.com/photo-1485846234645-a62644f84728";
+const MAX_CATEGORY_LABEL_LENGTH = 60;
+const MAX_MOVIE_TITLE_LENGTH = 120;
+const MAX_MOVIE_DETAILS_LENGTH = 80;
+const MAX_RECOMMENDATION_NOTE_LENGTH = 240;
+let userProfile = { displayName: "Usuario", photoURL: DEFAULT_PROFILE_PHOTO };
+let currentMainView = "groups";
+let predictionsByUser = {};
+let predictionWinners = {};
+let isEditingPredictions = false;
+let adminUserIds = [];
+let recommendations = [];
+let unsubscribeRecommendations = null;
+const profileCache = {};
+const loadingProfileIds = new Set(); function ensureSharedCategory(list) {
+  return {
+    list: Array.isArray(list)
+      ? list.filter(d =>
+          normalizeLabel(d.label) !== normalizeLabel(SHARED_CATEGORY_LABEL)
+        )
+      : [],
+    changed: false
+  };
+}
+
 async function getUserGroups(uid) {
   const q = query(collection(db, "groups"), where("members", "array-contains", uid));
   const snap = await getDocs(q);
@@ -362,7 +416,7 @@ function renderWebImprovements() {
 }
  
 function showMainView(viewName) {
-  currentMainView = ["groups", "profile", "predictions", "recommendations", "web", "photography"].includes(viewName) ? viewName : "groups";
+  currentMainView = ["groups", "profile", "predictions", "recommendations", "web", "photography", "shelf"].includes(viewName) ? viewName : "groups";
  
   const groupsView = document.getElementById("groups-view");
   const profileView = document.getElementById("profile-view");
@@ -370,8 +424,9 @@ function showMainView(viewName) {
   const recommendationsView = document.getElementById("recommendations-view");
   const webView = document.getElementById("web-view");
   const photographyView = document.getElementById("photography-view");
+  const shelfView = document.getElementById("shelf-view");
  
-  if (!groupsView || !profileView || !predictionsView || !recommendationsView || !webView || !photographyView) return;
+  if (!groupsView || !profileView || !predictionsView || !recommendationsView || !webView || !photographyView || !shelfView) return;
  
   groupsView.classList.add("hidden");
   profileView.classList.add("hidden");
@@ -379,6 +434,7 @@ function showMainView(viewName) {
   recommendationsView.classList.add("hidden");
   webView.classList.add("hidden");
   photographyView.classList.add("hidden");
+  shelfView.classList.add("hidden");
  
   if (currentMainView === "profile") {
     profileView.classList.remove("hidden");
@@ -393,6 +449,9 @@ function showMainView(viewName) {
     renderWebImprovements();
   } else if (currentMainView === "photography") {
     photographyView.classList.remove("hidden");
+  } else if (currentMainView === "shelf") {
+    shelfView.classList.remove("hidden");
+    shelf.render();
   } else {
     groupsView.classList.remove("hidden");
   }
@@ -562,6 +621,7 @@ const navPredictionsBtn = document.getElementById("nav-predictions-btn");
 const navRecommendationsBtn = document.getElementById("nav-recommendations-btn");
 const navWebBtn = document.getElementById("nav-web-btn");
 const navPhotographyBtn = document.getElementById("nav-photography-btn");
+const navShelfBtn = document.getElementById("nav-shelf-btn");
  
 function updateNavbarViewState() {
   const viewByButton = [
@@ -570,7 +630,8 @@ function updateNavbarViewState() {
     [navPredictionsBtn, "predictions"],
     [navRecommendationsBtn, "recommendations"],
     [navWebBtn, "web"],
-    [navPhotographyBtn, "photography"]
+    [navPhotographyBtn, "photography"],
+    [navShelfBtn, "shelf"]
   ];
   viewByButton.forEach(([button, viewName]) => {
     if (!button) return;
@@ -607,6 +668,7 @@ navPredictionsBtn.addEventListener("click", () => { showMainView("predictions");
 navRecommendationsBtn.addEventListener("click", () => { showMainView("recommendations"); closeNavbarMenu(); });
 navWebBtn.addEventListener("click", () => { showMainView("web"); closeNavbarMenu(); });
 navPhotographyBtn.addEventListener("click", () => { showMainView("photography"); closeNavbarMenu(); });
+navShelfBtn.addEventListener("click", () => { showMainView("shelf"); closeNavbarMenu(); });
  
 document.getElementById("toggle-predictions-edit-btn").onclick = () => {
   if (!isAdminFlag || !uid || !sharedDocRef) return;
@@ -688,6 +750,13 @@ document.getElementById("save-recommendation-btn").onclick = async () => {
     }
   });
 };
+
+document.getElementById("shelf-movie-title-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    document.getElementById("add-shelf-movie-btn").click();
+  }
+});
  
 document.getElementById("generate-collage-btn").onclick = async () => {
   await runWithDisabledButton("generate-collage-btn", async () => {
@@ -732,6 +801,12 @@ async function fetchMovieData(title) {
   }
 }
  
+const shelf = createShelf({
+  fetchMovieData,
+  fallbackPoster: FALLBACK_POSTER,
+  isViewActive: () => currentMainView === "shelf"
+});
+
 /* ========== INIT: escucha schedule ========= */
 function init() {
   if (!docRef) return;
@@ -964,6 +1039,7 @@ const onAuthStateChangedHandler = async (user) => {
     if (unsubscribeSchedule) unsubscribeSchedule();
     if (unsubscribeShared) unsubscribeShared();
     if (unsubscribeRecommendations) unsubscribeRecommendations();
+    shelf.clear();
     uid = null;
     isAdminFlag = false;
     isEditingPredictions = false;
@@ -1008,6 +1084,10 @@ const onAuthStateChangedHandler = async (user) => {
     showMainView("groups");
     init();
     initShared();
+    shelf.setSession({
+      uid,
+      editable: true
+    });
     loadAdminUsers();
     initRecommendations();
   } else {

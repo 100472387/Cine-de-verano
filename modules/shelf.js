@@ -6,6 +6,7 @@ import {
   runWithDisabledButton,
   showToast
 } from "../utils.js";
+import { createShelfScan } from "./shelf-scan.js";
 
 const MAX_ITEMS = 60;
 const MAX_TITLE_LENGTH = 120;
@@ -281,46 +282,57 @@ export function createShelf({ fetchMovieData, fallbackPoster, isViewActive = () 
     container.style.minHeight = `${Math.max(440, maxBottom + 20)}px`;
   }
 
-  async function addItem() {
+  async function addMovie({ title, format, fallbackImage = "" }) {
     if (!canEdit || !userId || !shelfDocRef) {
       showToast("Inicia sesión con acceso a un grupo para usar la estantería.", "info");
-      return;
+      return false;
     }
 
-    const title = truncateClean(titleInput?.value, MAX_TITLE_LENGTH);
-    const format = normalizeFormat(formatSelect?.value);
-    if (!title) {
+    const cleanedTitle = truncateClean(title, MAX_TITLE_LENGTH);
+    if (!cleanedTitle) {
       showToast("Escribe el título de la película.", "info");
-      titleInput?.focus();
-      return;
+      return false;
     }
     if (items.length >= MAX_ITEMS) {
       showToast(`La estantería admite hasta ${MAX_ITEMS} películas.`, "info");
-      return;
+      return false;
     }
 
+    const previousItems = items;
+    try {
+      const movieData = await fetchMovieData(cleanedTitle);
+      const poster = movieData.img && movieData.img !== fallbackPoster
+        ? movieData.img
+        : (sanitizeHttpUrl(fallbackImage, "") || fallbackPoster);
+
+      items = [...items, {
+        id: generateItemId(),
+        title: cleanedTitle,
+        img: poster,
+        rating: movieData.rating,
+        format: normalizeFormat(format),
+        ...computeNextPosition()
+      }];
+      render();
+      await setDoc(shelfDocRef, { items }, { merge: true });
+      showToast("Película añadida a tu estantería.", "success");
+      return true;
+    } catch (error) {
+      console.error("Error al añadir a la estantería:", error);
+      items = previousItems;
+      render();
+      showToast("No se pudo añadir la película. Inténtalo de nuevo.", "error");
+      return false;
+    }
+  }
+
+  async function addItem() {
     await runWithDisabledButton("add-shelf-movie-btn", async () => {
-      const previousItems = items;
-      try {
-        const movieData = await fetchMovieData(title);
-        items = [...items, {
-          id: generateItemId(),
-          title,
-          img: movieData.img,
-          rating: movieData.rating,
-          format,
-          ...computeNextPosition()
-        }];
-        render();
-        await setDoc(shelfDocRef, { items }, { merge: true });
-        if (titleInput) titleInput.value = "";
-        showToast("Película añadida a tu estantería.", "success");
-      } catch (error) {
-        console.error("Error al añadir a la estantería:", error);
-        items = previousItems;
-        render();
-        showToast("No se pudo añadir la película. Inténtalo de nuevo.", "error");
-      }
+      const added = await addMovie({
+        title: titleInput?.value,
+        format: formatSelect?.value
+      });
+      if (added && titleInput) titleInput.value = "";
     });
   }
 
@@ -350,6 +362,7 @@ export function createShelf({ fetchMovieData, fallbackPoster, isViewActive = () 
     canEdit = false;
     shelfDocRef = null;
     items = [];
+    scanFlow.close();
     closeCover();
   }
 
@@ -365,6 +378,17 @@ export function createShelf({ fetchMovieData, fallbackPoster, isViewActive = () 
   });
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && coverModal?.classList.contains("show")) closeCover();
+  });
+
+  const scanFlow = createShelfScan({
+    addMovie,
+    fetchMovieData,
+    fallbackPoster,
+    canScan: () => Boolean(canEdit && userId && shelfDocRef)
+  });
+
+  document.getElementById("shelf-scan-btn")?.addEventListener("click", () => {
+    void scanFlow.start();
   });
 
   return { setSession, clear, render, closeCover };
