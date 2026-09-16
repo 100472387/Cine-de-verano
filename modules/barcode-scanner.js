@@ -15,7 +15,10 @@ import { showToast } from "../utils.js";
 // Ver INTEGRACION.md para descargar el archivo a vendor/.
 const ZXING_SCRIPT_URL = new URL("../vendor/zxing.min.js", import.meta.url).href;
 const TARGET_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
-const DECODE_INTERVAL_MS = 180;
+const DECODE_INTERVAL_MS = 220;
+// Cada cuántos fotogramas se actualiza el mensaje "Analizando…" en pantalla,
+// para que se note que el lector sigue vivo aunque no encuentre nada todavía.
+const HEARTBEAT_EVERY_N_FRAMES = 15;
 
 let zxingLoader = null;
 
@@ -72,6 +75,59 @@ export function createBarcodeScanner() {
   let resolveScan = null;
   let isOpen = false;
   let torchOn = false;
+  let hintTimers = [];
+
+  // Dos lienzos ocultos reutilizables: uno con el fotograma tal cual y otro
+  // reflejado en horizontal. Algunos portátiles espejan la imagen de la
+  // cámara frontal a nivel de controlador (no solo en pantalla), así que se
+  // analizan ambas versiones por si la que se guarda de verdad viene volteada.
+  let normalCanvas = null;
+  let normalCtx = null;
+  let flippedCanvas = null;
+  let flippedCtx = null;
+
+  function grabFrames() {
+    if (!video || video.readyState < 2) return null;
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+    if (!width || !height) return null;
+
+    if (!normalCanvas) {
+      normalCanvas = document.createElement("canvas");
+      normalCtx = normalCanvas.getContext("2d", { willReadFrequently: true });
+      flippedCanvas = document.createElement("canvas");
+      flippedCtx = flippedCanvas.getContext("2d", { willReadFrequently: true });
+    }
+
+    normalCanvas.width = width;
+    normalCanvas.height = height;
+    normalCtx.drawImage(video, 0, 0, width, height);
+
+    flippedCanvas.width = width;
+    flippedCanvas.height = height;
+    flippedCtx.save();
+    flippedCtx.translate(width, 0);
+    flippedCtx.scale(-1, 1);
+    flippedCtx.drawImage(video, 0, 0, width, height);
+    flippedCtx.restore();
+
+    return { normal: normalCanvas, flipped: flippedCanvas };
+  }
+
+  function clearHintTimers() {
+    hintTimers.forEach((id) => window.clearTimeout(id));
+    hintTimers = [];
+  }
+
+  function scheduleHints() {
+    clearHintTimers();
+    hintTimers.push(window.setTimeout(() => {
+      if (isOpen) setStatus("¿No detecta nada? Acércalo hasta que se vea nítido, no borroso, y con buena luz.");
+    }, 7000));
+    hintTimers.push(window.setTimeout(() => {
+      if (isOpen) setStatus("Prueba también a alejarlo un poco: las cámaras de portátil no enfocan bien muy de cerca.");
+    }, 16000));
+  }
 
   function setStatus(text) {
     if (statusLabel) statusLabel.textContent = text;
@@ -96,6 +152,7 @@ export function createBarcodeScanner() {
   }
 
   function stopCamera() {
+    clearHintTimers();
     if (intervalId) {
       window.clearInterval(intervalId);
       intervalId = null;
@@ -150,13 +207,26 @@ export function createBarcodeScanner() {
 
       const detector = new window.BarcodeDetector({ formats });
       let busy = false;
+      let frameCount = 0;
       intervalId = window.setInterval(async () => {
-        if (!isOpen || busy || !video || video.readyState < 2) return;
+        if (!isOpen || busy) return;
+        const frames = grabFrames();
+        if (!frames) return;
         busy = true;
         try {
-          const results = await detector.detect(video);
-          const hit = results.map((result) => result.rawValue).find(isAcceptableCode);
-          if (hit) finish(hit);
+          const direct = await detector.detect(frames.normal);
+          const mirrored = direct.length ? [] : await detector.detect(frames.flipped);
+          const values = [...direct, ...mirrored].map((result) => result.rawValue);
+          const hit = values.find(isAcceptableCode);
+          frameCount += 1;
+
+          if (hit) {
+            finish(hit);
+          } else if (values.length) {
+            setStatus(`Detecta "${values[0]}" pero no encaja como código de producto. Prueba con otra caja.`);
+          } else if (frameCount % HEARTBEAT_EVERY_N_FRAMES === 0) {
+            setStatus(`Analizando… (${frameCount} intentos, sin resultado todavía)`);
+          }
         } catch (error) {
           // Un fotograma suelto puede fallar; se reintenta en el siguiente ciclo.
         }
@@ -181,14 +251,71 @@ export function createBarcodeScanner() {
     hints.set(DecodeHintType.TRY_HARDER, true);
 
     zxingReader = new BrowserMultiFormatReader(hints, DECODE_INTERVAL_MS);
-    if (typeof zxingReader.decodeFromStream !== "function") {
-      throw new Error("La versión de ZXing cargada no expone decodeFromStream");
+
+    const canDecodeFromCanvas = typeof zxingReader.decodeFromCanvas === "function";
+    if (!canDecodeFromCanvas) {
+      if (typeof zxingReader.decodeFromStream !== "function") {
+        throw new Error("La versión de ZXing cargada no expone un método de decodificación compatible");
+      }
+      let frameCount = 0;
+      await zxingReader.decodeFromStream(stream, video, (result, error) => {
+        if (!isOpen) return;
+        frameCount += 1;
+
+        if (result) {
+          const code = typeof result.getText === "function" ? result.getText() : result.text;
+          if (isAcceptableCode(code)) {
+            finish(code);
+          } else {
+            setStatus(`Detecta "${code}" pero no encaja como código de producto. Prueba con otra caja.`);
+          }
+          return;
+        }
+
+        // NotFoundException se dispara en casi todos los fotogramas (normal:
+        // significa "en este fotograma no hay nada que leer"). Solo interesa
+        // avisar cuando el error es de otro tipo, porque eso sí es una pista.
+        if (error?.name && error.name !== "NotFoundException") {
+          setStatus(`Ve algo parecido a un código pero no lo lee bien (${error.name}). Acércate o aléjate un poco.`);
+          return;
+        }
+
+        if (frameCount % HEARTBEAT_EVERY_N_FRAMES === 0) {
+          setStatus(`Analizando… (${frameCount} intentos, sin resultado todavía)`);
+        }
+      });
+      return;
     }
-    await zxingReader.decodeFromStream(stream, video, (result) => {
-      if (!result || !isOpen) return;
-      const code = typeof result.getText === "function" ? result.getText() : result.text;
-      if (isAcceptableCode(code)) finish(code);
-    });
+
+    let busy = false;
+    let frameCount = 0;
+    intervalId = window.setInterval(() => {
+      if (!isOpen || busy) return;
+      const frames = grabFrames();
+      if (!frames) return;
+      busy = true;
+      frameCount += 1;
+
+      const readCanvas = (canvas) => {
+        try {
+          const result = zxingReader.decodeFromCanvas(canvas);
+          return (result && typeof result.getText === "function" ? result.getText() : result?.text) || null;
+        } catch (error) {
+          return null; // Fotograma sin código legible; se reintenta en el siguiente ciclo.
+        }
+      };
+
+      const rawCode = readCanvas(frames.normal) || readCanvas(frames.flipped);
+      busy = false;
+
+      if (rawCode && isAcceptableCode(rawCode)) {
+        finish(rawCode);
+      } else if (rawCode) {
+        setStatus(`Detecta "${rawCode}" pero no encaja como código de producto. Prueba con otra caja.`);
+      } else if (frameCount % HEARTBEAT_EVERY_N_FRAMES === 0) {
+        setStatus(`Analizando… (${frameCount} intentos, sin resultado todavía)`);
+      }
+    }, DECODE_INTERVAL_MS);
   }
 
   async function open() {
@@ -222,6 +349,7 @@ export function createBarcodeScanner() {
 
       setupTorch();
       setStatus("Enfoca el código de barras del lomo o la contraportada.");
+      scheduleHints();
 
       const usingNative = await startNativeDecoder();
       if (!usingNative) {
